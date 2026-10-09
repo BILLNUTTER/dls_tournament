@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Football Tournament Manager"
+description = "A public tournament website and secure administration dashboard for creating competitions, managing teams and fixtures, updating live scores, calculating standings, and advancing knockout rounds."
+version = "1.0.0"
+id = "artifacts/football-tournament"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 25847
+
+[services.development]
+run = "pnpm --filter @workspace/football-tournament run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/football-tournament", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/football-tournament/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "25847"
+BASE_PATH = "/"
