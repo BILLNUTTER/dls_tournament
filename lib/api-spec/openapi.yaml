@@ -10,6 +10,18 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Administrator setup and session
+  - name: tournaments
+    description: Tournament configuration and overview
+  - name: teams
+    description: Registered teams
+  - name: stages
+    description: Competition stages
+  - name: matches
+    description: Fixtures, results, and match events
+  - name: public
+    description: Public tournament views
 paths:
   /healthz:
     get:
@@ -24,8 +36,515 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /setup/status:
+    get:
+      operationId: getSetupStatus
+      tags: [auth]
+      summary: Check whether initial administrator setup is available
+      responses:
+        "200":
+          description: Setup status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SetupStatus"
+  /setup/admin:
+    post:
+      operationId: setupAdmin
+      tags: [auth]
+      summary: Create the initial administrator with the one-time setup token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminSetupInput"
+      responses:
+        "201":
+          description: Administrator created and signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminSession"
+        "400":
+          $ref: "#/components/responses/ErrorResponse"
+        "409":
+          $ref: "#/components/responses/ErrorResponse"
+  /auth/login:
+    post:
+      operationId: loginAdmin
+      tags: [auth]
+      summary: Sign in an administrator
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminLoginInput"
+      responses:
+        "200":
+          description: Signed-in administrator
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminSession"
+        "401":
+          $ref: "#/components/responses/ErrorResponse"
+  /auth/me:
+    get:
+      operationId: getAdminSession
+      tags: [auth]
+      summary: Return the current administrator session
+      responses:
+        "200":
+          description: Current administrator
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminSession"
+        "401":
+          $ref: "#/components/responses/ErrorResponse"
+  /auth/logout:
+    post:
+      operationId: logoutAdmin
+      tags: [auth]
+      summary: End the current administrator session
+      responses:
+        "204":
+          description: Session ended
+  /dashboard:
+    get:
+      operationId: getDashboard
+      tags: [public]
+      summary: Get public tournament dashboard summary
+      responses:
+        "200":
+          description: Dashboard data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardSummary"
+  /tournaments:
+    get:
+      operationId: listTournaments
+      tags: [tournaments]
+      summary: List tournaments
+      responses:
+        "200":
+          description: Tournament list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Tournament"
+    post:
+      operationId: createTournament
+      tags: [tournaments]
+      summary: Create a tournament
+      security: [{ adminCookie: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TournamentInput"
+      responses:
+        "201":
+          description: Tournament created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tournament"
+        "400":
+          $ref: "#/components/responses/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/ErrorResponse"
+  /tournaments/{tournamentId}:
+    get:
+      operationId: getTournament
+      tags: [tournaments]
+      summary: Get tournament details
+      parameters:
+        - $ref: "#/components/parameters/TournamentId"
+      responses:
+        "200":
+          description: Tournament
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tournament"
+        "404":
+          $ref: "#/components/responses/ErrorResponse"
+    patch:
+      operationId: updateTournament
+      tags: [tournaments]
+      summary: Update a tournament
+      security: [{ adminCookie: [] }]
+      parameters:
+        - $ref: "#/components/parameters/TournamentId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TournamentUpdate"
+      responses:
+        "200":
+          description: Updated tournament
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tournament"
+        "401":
+          $ref: "#/components/responses/ErrorResponse"
+        "404":
+          $ref: "#/components/responses/ErrorResponse"
+  /teams:
+    get:
+      operationId: listTeams
+      tags: [teams]
+      summary: List teams in a tournament
+      parameters:
+        - name: tournamentId
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Team list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Team"
+    post:
+      operationId: createTeam
+      tags: [teams]
+      summary: Register a team
+      security: [{ adminCookie: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TeamInput"
+      responses:
+        "201":
+          description: Team created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Team"
+        "401":
+          $ref: "#/components/responses/ErrorResponse"
+        "400":
+          $ref: "#/components/responses/ErrorResponse"
+  /teams/{teamId}:
+    patch:
+      operationId: updateTeam
+      tags: [teams]
+      summary: Update a registered team
+      security: [{ adminCookie: [] }]
+      parameters:
+        - $ref: "#/components/parameters/TeamId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TeamUpdate"
+      responses:
+        "200":
+          description: Updated team
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Team"
+        "404":
+          $ref: "#/components/responses/ErrorResponse"
+    delete:
+      operationId: deleteTeam
+      tags: [teams]
+      summary: Remove a registered team
+      security: [{ adminCookie: [] }]
+      parameters:
+        - $ref: "#/components/parameters/TeamId"
+      responses:
+        "204":
+          description: Team removed
+        "409":
+          $ref: "#/components/responses/ErrorResponse"
+  /stages:
+    get:
+      operationId: listStages
+      tags: [stages]
+      summary: List tournament stages
+      parameters:
+        - name: tournamentId
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Stage list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Stage"
+    post:
+      operationId: createStage
+      tags: [stages]
+      summary: Create a league or knockout stage
+      security: [{ adminCookie: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StageInput"
+      responses:
+        "201":
+          description: Stage created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Stage"
+        "401":
+          $ref: "#/components/responses/ErrorResponse"
+        "400":
+          $ref: "#/components/responses/ErrorResponse"
+  /stages/{stageId}/complete:
+    post:
+      operationId: completeStage
+      tags: [stages]
+      summary: Complete a stage and set qualified teams
+      security: [{ adminCookie: [] }]
+      parameters:
+        - $ref: "#/components/parameters/StageId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StageCompleteInput"
+      responses:
+        "200":
+          description: Completed stage
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Stage"
+        "409":
+          $ref: "#/components/responses/ErrorResponse"
+  /matches:
+    get:
+      operationId: listMatches
+      tags: [matches]
+      summary: List fixtures and results
+      parameters:
+        - name: tournamentId
+          in: query
+          required: true
+          schema: { type: string }
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [scheduled, live, completed]
+      responses:
+        "200":
+          description: Match list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Match"
+    post:
+      operationId: createMatch
+      tags: [matches]
+      summary: Create or generate fixtures
+      security: [{ adminCookie: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MatchInput"
+      responses:
+        "201":
+          description: Fixture created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Match"
+        "400":
+          $ref: "#/components/responses/ErrorResponse"
+  /matches/generate:
+    post:
+      operationId: generateFixtures
+      tags: [matches]
+      summary: Generate round-robin league fixtures
+      security: [{ adminCookie: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FixtureGenerationInput"
+      responses:
+        "201":
+          description: Generated fixtures
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Match"
+        "409":
+          $ref: "#/components/responses/ErrorResponse"
+  /matches/{matchId}:
+    patch:
+      operationId: updateMatch
+      tags: [matches]
+      summary: Change a fixture, score, or result
+      security: [{ adminCookie: [] }]
+      parameters:
+        - $ref: "#/components/parameters/MatchId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MatchUpdate"
+      responses:
+        "200":
+          description: Updated match
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Match"
+        "404":
+          $ref: "#/components/responses/ErrorResponse"
+    delete:
+      operationId: deleteMatch
+      tags: [matches]
+      summary: Delete a scheduled fixture
+      security: [{ adminCookie: [] }]
+      parameters:
+        - $ref: "#/components/parameters/MatchId"
+      responses:
+        "204":
+          description: Fixture removed
+        "409":
+          $ref: "#/components/responses/ErrorResponse"
+  /standings:
+    get:
+      operationId: getStandings
+      tags: [public]
+      summary: Calculate standings for a tournament stage
+      parameters:
+        - name: tournamentId
+          in: query
+          required: true
+          schema: { type: string }
+        - name: stageId
+          in: query
+          required: false
+          schema: { type: string }
+      responses:
+        "200":
+          description: Table rows
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Standing"
+  /events:
+    post:
+      operationId: createMatchEvent
+      tags: [matches]
+      summary: Record a goal, card, or substitution
+      security: [{ adminCookie: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MatchEventInput"
+      responses:
+        "201":
+          description: Match event recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MatchEvent"
+        "400":
+          $ref: "#/components/responses/ErrorResponse"
+    get:
+      operationId: listMatchEvents
+      tags: [matches]
+      summary: List events for a match
+      parameters:
+        - name: matchId
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Match events
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MatchEvent"
 components:
+  securitySchemes:
+    adminCookie:
+      type: apiKey
+      in: cookie
+      name: connect.sid
+  parameters:
+    TournamentId:
+      name: tournamentId
+      in: path
+      required: true
+      schema: { type: string }
+    TeamId:
+      name: teamId
+      in: path
+      required: true
+      schema: { type: string }
+    StageId:
+      name: stageId
+      in: path
+      required: true
+      schema: { type: string }
+    MatchId:
+      name: matchId
+      in: path
+      required: true
+      schema: { type: string }
+  responses:
+    ErrorResponse:
+      description: Request failed
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
   schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error: { type: string }
     HealthStatus:
       type: object
       properties:
@@ -33,4 +552,223 @@ components:
           type: string
       required:
         - status
+    SetupStatus:
+      type: object
+      required: [setupRequired]
+      properties:
+        setupRequired: { type: boolean }
+    AdminSetupInput:
+      type: object
+      required: [setupToken, email, password]
+      properties:
+        setupToken: { type: string }
+        email: { type: string, format: email }
+        password: { type: string, minLength: 12 }
+    AdminLoginInput:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string }
+    AdminSession:
+      type: object
+      required: [id, email, role]
+      properties:
+        id: { type: string }
+        email: { type: string }
+        role: { type: string, enum: [admin] }
+    Tournament:
+      type: object
+      required: [id, name, slug, format, status, maxTeams, createdAt]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        slug: { type: string }
+        description: { type: string }
+        venue: { type: string }
+        logoUrl: { type: ["string", "null"] }
+        format: { type: string, enum: [league, knockout, group-knockout] }
+        status: { type: string, enum: [draft, active, completed] }
+        maxTeams: { type: integer }
+        championId: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }
+    TournamentInput:
+      type: object
+      required: [name, format, maxTeams]
+      properties:
+        name: { type: string, minLength: 2, maxLength: 100 }
+        description: { type: string }
+        venue: { type: string }
+        logoUrl: { type: ["string", "null"] }
+        format: { type: string, enum: [league, knockout, group-knockout] }
+        maxTeams: { type: integer, minimum: 2, maximum: 128 }
+        status: { type: string, enum: [draft, active], default: draft }
+    TournamentUpdate:
+      type: object
+      properties:
+        name: { type: string, minLength: 2, maxLength: 100 }
+        description: { type: string }
+        venue: { type: string }
+        logoUrl: { type: ["string", "null"] }
+        format: { type: string, enum: [league, knockout, group-knockout] }
+        maxTeams: { type: integer, minimum: 2, maximum: 128 }
+        status: { type: string, enum: [draft, active, completed] }
+    Team:
+      type: object
+      required: [id, tournamentId, name, shortName, createdAt]
+      properties:
+        id: { type: string }
+        tournamentId: { type: string }
+        name: { type: string }
+        shortName: { type: string }
+        logoUrl: { type: ["string", "null"] }
+        city: { type: string }
+        group: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }
+    TeamInput:
+      type: object
+      required: [tournamentId, name, shortName]
+      properties:
+        tournamentId: { type: string }
+        name: { type: string, minLength: 2, maxLength: 100 }
+        shortName: { type: string, minLength: 2, maxLength: 6 }
+        logoUrl: { type: ["string", "null"] }
+        city: { type: string }
+        group: { type: ["string", "null"] }
+    TeamUpdate:
+      type: object
+      properties:
+        name: { type: string, minLength: 2, maxLength: 100 }
+        shortName: { type: string, minLength: 2, maxLength: 6 }
+        logoUrl: { type: ["string", "null"] }
+        city: { type: string }
+        group: { type: ["string", "null"] }
+    Stage:
+      type: object
+      required: [id, tournamentId, name, type, order, status, createdAt]
+      properties:
+        id: { type: string }
+        tournamentId: { type: string }
+        name: { type: string }
+        type: { type: string, enum: [league, group, knockout] }
+        order: { type: integer }
+        status: { type: string, enum: [upcoming, active, completed] }
+        qualifiedTeamIds:
+          type: array
+          items: { type: string }
+        createdAt: { type: string, format: date-time }
+    StageInput:
+      type: object
+      required: [tournamentId, name, type, order]
+      properties:
+        tournamentId: { type: string }
+        name: { type: string, minLength: 2 }
+        type: { type: string, enum: [league, group, knockout] }
+        order: { type: integer, minimum: 1 }
+    StageCompleteInput:
+      type: object
+      required: [qualifiedTeamIds]
+      properties:
+        qualifiedTeamIds:
+          type: array
+          items: { type: string }
+    Match:
+      type: object
+      required: [id, tournamentId, stageId, homeTeamId, awayTeamId, status, homeScore, awayScore, events, createdAt]
+      properties:
+        id: { type: string }
+        tournamentId: { type: string }
+        stageId: { type: string }
+        round: { type: string }
+        homeTeamId: { type: string }
+        awayTeamId: { type: string }
+        kickoffAt: { type: ["string", "null"], format: date-time }
+        venue: { type: string }
+        status: { type: string, enum: [scheduled, live, completed] }
+        minute: { type: integer }
+        homeScore: { type: integer }
+        awayScore: { type: integer }
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/MatchEvent"
+        createdAt: { type: string, format: date-time }
+    MatchInput:
+      type: object
+      required: [tournamentId, stageId, homeTeamId, awayTeamId]
+      properties:
+        tournamentId: { type: string }
+        stageId: { type: string }
+        round: { type: string }
+        homeTeamId: { type: string }
+        awayTeamId: { type: string }
+        kickoffAt: { type: ["string", "null"], format: date-time }
+        venue: { type: string }
+    FixtureGenerationInput:
+      type: object
+      required: [tournamentId, stageId]
+      properties:
+        tournamentId: { type: string }
+        stageId: { type: string }
+        doubleRoundRobin: { type: boolean, default: false }
+        kickoffAt: { type: ["string", "null"], format: date-time }
+    MatchUpdate:
+      type: object
+      properties:
+        kickoffAt: { type: ["string", "null"], format: date-time }
+        venue: { type: string }
+        status: { type: string, enum: [scheduled, live, completed] }
+        minute: { type: integer, minimum: 0, maximum: 130 }
+        homeScore: { type: integer, minimum: 0 }
+        awayScore: { type: integer, minimum: 0 }
+    MatchEvent:
+      type: object
+      required: [id, matchId, type, minute, createdAt]
+      properties:
+        id: { type: string }
+        matchId: { type: string }
+        type: { type: string, enum: [goal, yellow-card, red-card, substitution] }
+        minute: { type: integer }
+        teamId: { type: ["string", "null"] }
+        playerName: { type: string }
+        detail: { type: string }
+        createdAt: { type: string, format: date-time }
+    MatchEventInput:
+      type: object
+      required: [matchId, type, minute]
+      properties:
+        matchId: { type: string }
+        type: { type: string, enum: [goal, yellow-card, red-card, substitution] }
+        minute: { type: integer, minimum: 0, maximum: 130 }
+        teamId: { type: ["string", "null"] }
+        playerName: { type: string }
+        detail: { type: string }
+    Standing:
+      type: object
+      required: [teamId, teamName, played, won, drawn, lost, goalsFor, goalsAgainst, goalDifference, points]
+      properties:
+        teamId: { type: string }
+        teamName: { type: string }
+        shortName: { type: string }
+        logoUrl: { type: ["string", "null"] }
+        played: { type: integer }
+        won: { type: integer }
+        drawn: { type: integer }
+        lost: { type: integer }
+        goalsFor: { type: integer }
+        goalsAgainst: { type: integer }
+        goalDifference: { type: integer }
+        points: { type: integer }
+    DashboardSummary:
+      type: object
+      required: [tournaments, teams, matches, liveMatches, upcomingMatches]
+      properties:
+        tournaments: { type: integer }
+        teams: { type: integer }
+        matches: { type: integer }
+        liveMatches: { type: integer }
+        upcomingMatches:
+          type: array
+          items:
+            $ref: "#/components/schemas/Match"
 
