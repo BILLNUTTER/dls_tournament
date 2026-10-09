@@ -537,12 +537,15 @@ a { color: inherit; text-decoration: none; }
 .bracket-team {display:flex;justify-content:space-between;padding:7px 0;font-size:12px;}
 .mobile-menu {display:none;}
 @media(max-width:850px) {
- .navlinks {gap:13px;font-size:12px}.navlinks a:nth-child(n+5){display:none}
+ .navlinks {gap:13px;font-size:12px;flex:1;justify-content:flex-end;overflow-x:auto;white-space:nowrap;scrollbar-width:none}
+ .navlinks::-webkit-scrollbar {display:none}
  .grid-main {grid-template-columns:1fr}
  .admin-layout {grid-template-columns:1fr}.admin-side {flex-direction:row;overflow:auto;padding:8px}.admin-side a {white-space:nowrap}
 }
 @media(max-width:600px) {
- .topbar {height:64px}.navlinks {gap:10px}.navlinks a:nth-child(n+4){display:none}
+ .topbar {height:auto;min-height:64px;flex-wrap:wrap;padding:10px 16px;gap:8px}
+ .navlinks {width:100%;flex:none;justify-content:flex-start;gap:17px;padding:0 0 5px;overflow-x:auto;white-space:nowrap;scrollbar-width:none}
+ .navlinks::-webkit-scrollbar {display:none}
  .hero {min-height:410px}.hero h1 {font-size:58px}.hero-inner {padding:55px 0}
  .wrap {width:calc(100% - 30px)}.section {padding:36px 0 50px}
  .match-row {grid-template-columns:1fr 48px 1fr;gap:6px;padding:14px 12px}
