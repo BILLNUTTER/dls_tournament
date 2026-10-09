@@ -1,0 +1,1369 @@
+PROJECT NAME: FOOTBALL TOURNAMENT MANAGEMENT SYSTEM
+
+Build a complete, production-ready Football Tournament Management Website with a public frontend and a secure admin dashboard.
+
+IMPORTANT:
+This must be a fully functional application, not a static design or prototype. All buttons, forms, tables, navigation, match controls, and administrative features must work and be connected to the backend and MongoDB database.
+
+Do not use localStorage as the primary database. All permanent application data must be stored in MongoDB.
+
+==================================================
+1. PROJECT OBJECTIVE
+==================================================
+
+Create a modern football tournament management platform where administrators can create tournaments, register teams, schedule matches, update live scores, manage tournament stages, calculate league standings, and progress competitions through multiple stages until a champion is determined.
+
+The public frontend must display tournament information, standings, fixtures, results, live matches, registered teams, and knockout brackets.
+
+The administrator must manage everything through a secure dashboard without editing code or directly accessing the database.
+
+The public frontend and admin dashboard must belong to the same website.
+
+Example routes:
+
+/                  Public tournament homepage
+/tournament/:slug  Tournament details
+/standings         Tournament standings
+/fixtures          Upcoming fixtures
+/results           Completed matches
+/live              Live matches
+/teams             Registered teams
+/bracket           Knockout bracket
+/match/:id         Individual match details
+/admin/login       Administrator login
+/admin             Admin dashboard
+/admin/tournaments Tournament management
+/admin/teams       Team management
+/admin/stages      Tournament stage management
+/admin/matches     Fixture and match management
+/admin/settings    Application settings
+
+Routes can be improved where necessary, but all functionality must be implemented.
+
+==================================================
+2. TECHNOLOGY STACK
+==================================================
+
+Use the following technologies:
+
+Frontend:
+- React
+- TypeScript
+- Vite
+- Tailwind CSS
+- A professional icon library such as Lucide React
+- React Router for navigation
+
+Backend:
+- Node.js
+- Express.js
+- TypeScript
+- REST API
+
+Database:
+- MongoDB Atlas
+- Mongoose ODM
+
+Live updates:
+- Socket.IO for real-time match scores, match status changes, and standings updates.
+
+Authentication:
+- Secure administrator authentication.
+- Password hashing with bcrypt.
+- Secure HTTP-only cookies or another properly implemented secure session strategy.
+- Server-side role and permission checks.
+
+Validation:
+- Zod or an equivalent schema-validation library.
+- Validate data on both frontend and backend.
+
+Testing:
+- Add tests for important business logic and API endpoints.
+
+Use compatible, stable package versions.
+
+Organize the code into clean, maintainable frontend and backend modules.
+
+Do not expose MongoDB credentials, session secrets, or administrator credentials in frontend code.
+
+==================================================
+3. MONGODB DATABASE CONFIGURATION
+==================================================
+
+Use MongoDB Atlas for persistent storage.
+
+Read the database connection string from an environment variable:
+
+MONGODB_URI
+
+Use a configurable database name through:
+
+MONGODB_DB_NAME
+
+If a database name is not specified, use a sensible default.
+
+Create a secure configuration system for environment variables.
+
+Provide an .env.example file containing variable names and placeholder values only.
+
+Never commit actual secrets to source control.
+
+The server must:
+- Connect to MongoDB during startup.
+- Handle database connection failures gracefully.
+- Avoid accepting requests that require the database before initialization completes.
+- Close database connections cleanly during shutdown.
+- Log useful operational errors without exposing passwords or secrets.
+- Use appropriate database indexes.
+
+Create Mongoose models for:
+
+1. AdminUser
+2. Tournament
+3. Team
+4. TournamentEntry
+5. TournamentStage
+6. Group
+7. Match
+8. MatchEvent
+9. TournamentStanding or another suitable standings representation
+10. AuditLog
+
+Use references between related records where appropriate.
+
+Support multiple tournaments in the same database.
+
+A team must be reusable across different tournaments without duplicating the team's identity unnecessarily.
+
+Tournament participation, group assignment, statistics, and qualification must be specific to each tournament.
+
+Do not store every tournament's data inside one giant MongoDB document.
+
+Design the database so that updates to a match, team, or tournament do not require rewriting unrelated records.
+
+==================================================
+4. ADMIN AUTHENTICATION AND SECURITY
+==================================================
+
+Create a secure administrator login page.
+
+Administrators should log in with their configured email and password.
+
+Provide a safe initial administrator setup process.
+
+Do not create a publicly accessible default administrator account with a known password.
+
+Support initial admin creation through a protected setup process or a documented server-side bootstrap command.
+
+Once the initial administrator has been created, prevent unauthorized users from creating additional administrator accounts.
+
+Admin features must be protected on the backend.
+
+Hiding admin buttons in the frontend is not sufficient security.
+
+Implement:
+- Secure password hashing.
+- Login validation.
+- Session expiration.
+- Secure cookie settings.
+- Logout.
+- Rate limiting on authentication endpoints.
+- CSRF protection where applicable to the chosen authentication approach.
+- Input validation and sanitization.
+- Protection against unauthorized resource access.
+- Authorization checks for every administrative operation.
+- Appropriate security headers.
+- Safe error messages.
+- Audit logging for important administrative actions.
+
+Never store plaintext passwords.
+
+Never expose admin-only API operations to unauthenticated users.
+
+Public users must have read-only access to published tournament information.
+
+==================================================
+5. TOURNAMENT MANAGEMENT
+==================================================
+
+Administrators must be able to create, edit, publish, unpublish, archive, and delete tournaments according to safe data-integrity rules.
+
+Tournament creation fields:
+
+- Tournament name
+- Tournament slug
+- Tournament logo
+- Tournament description
+- Season
+- Start date
+- End date
+- Tournament status
+- Competition format
+- Number of participating teams
+- Default timezone
+- Points awarded for wins
+- Points awarded for draws
+- Points awarded for losses
+- Qualification rules
+- Tiebreaker rules
+- Optional venue information
+- Optional tournament organizer information
+
+Tournament statuses:
+
+- Draft
+- Registration
+- Scheduled
+- In progress
+- Completed
+- Archived
+
+Support a configurable tournament timezone.
+
+Default the timezone to Africa/Nairobi (EAT, UTC+3).
+
+Store dates and times consistently in the database, preferably as UTC timestamps, and convert them to the configured tournament timezone for display and administration.
+
+Allow the administrator to configure the actual number of teams participating.
+
+Validate the number of teams and the competition format before generating fixtures.
+
+Prevent accidental deletion of tournaments containing important historical data. Use confirmation dialogs and appropriate archival or soft-deletion mechanisms.
+
+A tournament should not become publicly visible until the administrator publishes it.
+
+==================================================
+6. TEAM REGISTRATION
+==================================================
+
+Create a complete team management interface.
+
+The administrator can register a team using:
+
+- Team name
+- Short name
+- Team logo
+- Country or region, optional
+- Home stadium, optional
+- Team description, optional
+- Contact information, optional and private
+
+Support uploading team logos.
+
+Use safe file-upload validation:
+- Validate image MIME types and file contents.
+- Restrict file sizes.
+- Generate safe filenames.
+- Prevent executable uploads.
+- Store images using a suitable persistent image-storage service or another durable storage solution.
+
+Do not rely on temporary deployment filesystem storage for permanent uploaded images.
+
+MongoDB should store the team's metadata and the image URL or storage reference.
+
+The administrator can:
+- Add teams.
+- Edit team information.
+- Update logos.
+- View team details.
+- Remove teams that are not needed.
+- Search and filter teams.
+- Register existing teams in another tournament.
+
+When registering teams for a tournament, enforce its maximum team capacity.
+
+If a tournament is already underway, do not silently modify completed matches or standings when a team is edited or removed.
+
+Use appropriate warnings and validation.
+
+==================================================
+7. TOURNAMENT FORMATS
+==================================================
+
+Support these tournament formats:
+
+A. LEAGUE FORMAT
+
+Every participating team plays the configured opponents according to the selected scheduling rules.
+
+Support single round-robin and double round-robin competitions.
+
+B. GROUP STAGE FOLLOWED BY KNOCKOUTS
+
+Allow administrators to configure:
+- Number of groups
+- Number of teams per group
+- Group assignments
+- Qualification places per group
+- Best third-placed teams or other configurable qualification rules
+- Knockout seeding rules
+
+Automatically calculate group standings and identify qualified teams.
+
+C. STRAIGHT KNOCKOUT
+
+Create knockout rounds such as:
+- Round of 64
+- Round of 32
+- Round of 16
+- Quarter-finals
+- Semi-finals
+- Final
+
+Support appropriate preliminary rounds when the team count is not a power of two.
+
+D. LEAGUE PHASE FOLLOWED BY KNOCKOUTS
+
+Allow a league phase followed by a knockout phase.
+
+The administrator configures:
+- Number of teams
+- League-phase fixtures
+- Number of teams qualifying
+- Qualification positions
+- Knockout seeding
+- Whether ties are single-leg or two-legged
+
+Do not hard-code the website to a specific competition format.
+
+All competition settings must be configurable.
+
+Use reliable fixture-generation algorithms and validate that the resulting schedule does not accidentally duplicate fixtures or schedule a team against itself.
+
+Allow manual fixture editing after generation.
+
+==================================================
+8. TOURNAMENT STAGE MANAGEMENT
+==================================================
+
+This is one of the most important features.
+
+Create a dedicated stage-management system.
+
+Administrators must be able to add, edit, reorder, complete, and manage tournament stages.
+
+Examples:
+
+- League Phase
+- Group Stage
+- Round of 32
+- Round of 16
+- Quarter-finals
+- Semi-finals
+- Third-place Play-off
+- Final
+
+Each stage should have:
+- Stage name
+- Stage type
+- Stage order
+- Tournament reference
+- Stage status
+- Participating teams
+- Qualification rules
+- Match format
+- Optional group assignments
+- Start and end dates
+
+Stage statuses:
+
+- Upcoming
+- In progress
+- Completed
+
+When a stage is completed, the administrator can create the next stage.
+
+The system must preserve all previous stages, fixtures, scores, standings, and results.
+
+Visitors must be able to select previous stages to view their information.
+
+Never overwrite the league-phase table when creating the knockout stage.
+
+Each stage must maintain its own records.
+
+Implement two methods of qualifying teams:
+
+1. Automatic qualification based on configured competition rules.
+2. Manual qualification where the administrator selects teams.
+
+Before creating a new stage, display a preview of the teams that will qualify.
+
+Require administrator confirmation before committing the new stage.
+
+Validate that teams are eligible and that the same team is not accidentally entered twice in a stage.
+
+For knockout progression, automatically identify winners after a tie is officially completed.
+
+For two-legged ties, calculate the aggregate score.
+
+Do not automatically eliminate teams based on aggregate scores alone when a tie is level and extra time or penalties are required.
+
+Allow the administrator to record extra-time and penalty-shootout results when applicable.
+
+Provide a controlled manual override for exceptional cases, with an audit log explaining the change.
+
+==================================================
+9. LEAGUE STANDINGS
+==================================================
+
+Generate a dynamic league table.
+
+Display:
+
+- Position
+- Team logo
+- Team name
+- Matches played
+- Wins
+- Draws
+- Losses
+- Goals for
+- Goals against
+- Goal difference
+- Points
+
+Calculate standings from officially completed matches only.
+
+Default points system:
+- Win: 3 points
+- Draw: 1 point
+- Loss: 0 points
+
+Allow administrators to configure the points system before or during a tournament, while warning them that changes may recalculate standings.
+
+Provide configurable tiebreakers.
+
+Possible tiebreakers include:
+- Total points
+- Goal difference
+- Goals scored
+- Head-to-head points
+- Head-to-head goal difference
+- Head-to-head goals scored
+- Fair-play points, when configured
+- Play-off match, where the tournament rules require it
+
+Do not assume that every tournament uses the same tiebreaker order.
+
+Allow administrators to configure the applicable order.
+
+For group tournaments, calculate each group's standings separately.
+
+Update the standings when:
+- A match is completed.
+- A completed result is corrected.
+- A result is annulled.
+- An eligible match is otherwise changed.
+
+Never count an upcoming, postponed, abandoned, or live match as an officially completed result.
+
+Make standings updates consistent and reliable.
+
+Avoid double-counting a match when it is edited or processed more than once.
+
+Use a reliable recalculation strategy so that the database can recover from errors.
+
+==================================================
+10. FIXTURE GENERATION AND SCHEDULING
+==================================================
+
+Create an interface for generating and manually scheduling fixtures.
+
+The administrator must be able to select:
+- Tournament
+- Stage
+- Home team
+- Away team
+- Match date
+- Kickoff time
+- Venue
+- Match format
+- Optional match notes
+
+Automatically generate fixtures when the selected tournament format allows it.
+
+For league formats, support round-robin fixture generation.
+
+For group formats, generate fixtures independently for each group.
+
+For knockout formats, generate pairings based on the configured bracket and qualified teams.
+
+Allow the administrator to:
+- Edit kickoff times.
+- Reschedule matches.
+- Change venues.
+- Postpone matches.
+- Cancel matches.
+- Reopen a match when authorized.
+- View fixtures by date, stage, team, or status.
+
+Prevent invalid scheduling, such as selecting the same team as both opponents.
+
+Warn administrators about scheduling conflicts.
+
+Do not automatically change a match's status to live simply because its scheduled kickoff time has arrived.
+
+A match must be started manually by an administrator unless an explicitly configured alternative is implemented.
+
+All displayed kickoff times must respect the tournament's configured timezone.
+
+==================================================
+11. MATCH STATUS AND LIVE SCORE MANAGEMENT
+==================================================
+
+Each match must have a reliable state-management system.
+
+Support these statuses:
+
+- Scheduled
+- Live
+- Half-time
+- Extra-time
+- Penalty shootout
+- Full-time
+- Postponed
+- Suspended
+- Abandoned
+- Cancelled
+
+The admin match-control interface should display:
+
+- Home team
+- Away team
+- Team logos
+- Current score
+- Match clock or minute
+- Match status
+- Scheduled kickoff time
+- Match events
+- Administrative controls
+
+Allow administrators to:
+- Start a match.
+- Update the home score.
+- Update the away score.
+- Set the match minute.
+- Pause or update the match clock.
+- Mark half-time.
+- Resume the second half.
+- Start extra time.
+- Record penalty-shootout scores.
+- Mark full-time.
+- Suspend a match.
+- Postpone or abandon a match.
+- Correct a result.
+- Reopen a completed match with appropriate permissions.
+
+The score should update on the public frontend without a page refresh using Socket.IO.
+
+When the match ends:
+- Save the official result.
+- Recalculate affected standings.
+- Update the results list.
+- Update qualification calculations when appropriate.
+- Advance knockout winners when the tie is fully resolved.
+- Notify connected clients of the changes.
+
+Implement safe match-state transitions.
+
+For example, a cancelled match should not accidentally count toward league standings.
+
+Use server-side validation to prevent unauthorized or invalid state changes.
+
+Support score correction after full-time. If an official result changes, recalculate standings and any dependent tournament progression safely.
+
+For two-legged ties, distinguish individual match scores from aggregate tie scores.
+
+The public website must never trust a score or status supplied directly by a browser without server validation.
+
+==================================================
+12. MATCH EVENTS
+==================================================
+
+Allow administrators to record match events.
+
+Support:
+- Goals
+- Own goals
+- Penalties scored
+- Penalties missed
+- Yellow cards
+- Red cards
+- Substitutions
+- Half-time
+- Full-time
+- Extra-time events
+- Penalty-shootout events
+
+For relevant events, support:
+- Team
+- Player name
+- Match minute
+- Added-time notation
+- Event type
+- Optional description
+
+Player names may be entered manually.
+
+Player management should be optional rather than a requirement for running the tournament.
+
+Show relevant events on the public match-details page.
+
+Display goalscorers and goal times alongside match results where available.
+
+Keep penalty-shootout scores separate from the regular match score.
+
+Validate events against the match and its participating teams.
+
+Allow administrators to correct or remove erroneous events.
+
+==================================================
+13. PUBLIC FRONTEND DESIGN
+==================================================
+
+Build a professional, modern football competition website.
+
+The interface should look like a serious football tournament platform rather than a generic business dashboard.
+
+Design principles:
+- Clean and responsive.
+- Strong visual hierarchy.
+- Clear match scores.
+- Readable league tables.
+- Professional football cards.
+- Modern typography.
+- Smooth but restrained transitions.
+- Accessible navigation.
+- Good performance on mobile devices.
+
+Use an orange, black, and white visual theme suitable for NutterX Football branding.
+
+Prefer a clean white background for the main content, with black typography and orange highlights.
+
+Support dark panels where they improve contrast.
+
+Use a suitable football-style condensed heading font if available.
+
+Do not overload the website with unnecessary animations.
+
+Do not use emoji as substitutes for team logos.
+
+Use uploaded team logos when available and appropriate placeholders when they are not.
+
+Provide attractive empty states when a tournament has no teams, fixtures, or results yet.
+
+Display useful loading indicators and error messages.
+
+Avoid layout shifts when scores or standings update.
+
+The interface must work well on:
+- Android phones
+- iPhones
+- Tablets
+- Laptops
+- Desktop screens
+
+Ensure tables remain usable on small screens through responsive layouts or horizontal scrolling.
+
+==================================================
+14. PUBLIC HOMEPAGE
+==================================================
+
+The homepage should display the selected active tournament prominently.
+
+Include:
+
+A. HEADER
+- Tournament or website logo.
+- Tournament name.
+- Navigation links.
+- Stage selector.
+- Optional tournament selector if multiple tournaments are published.
+
+B. TOURNAMENT SUMMARY
+- Competition name.
+- Season.
+- Current stage.
+- Tournament status.
+- Number of participating teams.
+
+C. MATCH CENTRE
+- Live matches.
+- Upcoming matches.
+- Recent results.
+- Match dates and times.
+
+D. STANDINGS PREVIEW
+- Current league or group table when applicable.
+- Link to the complete standings.
+
+E. KNOCKOUT BRACKET
+- Display when knockout stages exist.
+- Show team logos, scores, and progression.
+
+F. REGISTERED TEAMS
+- Team logos and names.
+- Links to team information.
+
+G. LATEST RESULTS
+- Recently completed matches.
+- Scores and match details.
+
+H. FOOTER
+- Tournament information.
+- Copyright information.
+- Optional organizer details.
+
+If no tournament is published, show a polished empty state instead of a broken page.
+
+Do not expose unpublished drafts or private administrator information.
+
+==================================================
+15. FIXTURES AND RESULTS SIDEBAR
+==================================================
+
+Create a collapsible Match Centre sidebar or drawer.
+
+On desktop, it can appear beside the main content.
+
+On mobile, it should open as a drawer without making the main content unusable.
+
+Include tabs or filters for:
+
+- All Matches
+- Live
+- Upcoming
+- Results
+
+Each match item should show:
+- Home team logo and name.
+- Away team logo and name.
+- Score, if available.
+- Match status.
+- Date and kickoff time.
+- Stage or group.
+- Match-details link.
+
+Live matches must be clearly identified.
+
+Completed matches must display their final scores.
+
+Upcoming matches must display their scheduled kickoff times.
+
+Sort upcoming matches chronologically.
+
+Sort completed matches by most recent first.
+
+Provide date and stage filters.
+
+Allow visitors to open an individual match for detailed information.
+
+Use Socket.IO for real-time updates.
+
+Ensure the sidebar can be closed using a close button, Escape key, or appropriate mobile interaction.
+
+==================================================
+16. INDIVIDUAL MATCH DETAILS
+==================================================
+
+Create a match-details page.
+
+Display:
+- Team logos and names.
+- Score.
+- Match status.
+- Kickoff date and time.
+- Venue, if available.
+- Tournament and stage.
+- Match events.
+- Goalscorers.
+- Match statistics when available.
+- Aggregate score for two-legged ties.
+- Penalty-shootout results where applicable.
+
+For upcoming matches, display a kickoff countdown if appropriate.
+
+The countdown must use the actual scheduled kickoff timestamp.
+
+Do not invent live statistics such as possession, shots, or player performance.
+
+Only display statistics that have actually been entered or reliably calculated.
+
+==================================================
+17. KNOCKOUT BRACKET
+==================================================
+
+Create a proper knockout bracket.
+
+Support:
+- Round of 32.
+- Round of 16.
+- Quarter-finals.
+- Semi-finals.
+- Third-place play-off.
+- Final.
+
+The actual rounds must be determined by the configured tournament.
+
+Each bracket fixture should display:
+- Team logos.
+- Team names.
+- Match score.
+- Match status.
+- Match date and time.
+- Aggregate score when relevant.
+- Penalty results when relevant.
+
+Show progression from one round to the next.
+
+Winners should advance to their configured next-round positions.
+
+Do not allow a team to advance merely because one leg of a two-legged tie has ended.
+
+For unresolved ties, display the appropriate pending state.
+
+Ensure the bracket is readable on mobile devices. Use horizontal scrolling or a responsive bracket layout where necessary.
+
+Allow visitors to view completed earlier rounds.
+
+==================================================
+18. ADMIN DASHBOARD INTERFACE
+==================================================
+
+Build a professional administration panel with sidebar navigation.
+
+Dashboard summary cards should show:
+- Total tournaments.
+- Published tournaments.
+- Registered teams.
+- Upcoming matches.
+- Live matches.
+- Completed matches.
+
+Include recent administrative activity.
+
+Provide search, sorting, pagination, and filters on large management tables.
+
+ADMIN SIDEBAR:
+
+1. Dashboard
+2. Tournaments
+3. Teams
+4. Tournament Entries
+5. Stages and Groups
+6. Fixtures
+7. Live Match Control
+8. Results
+9. Knockout Bracket
+10. Audit Logs
+11. Settings
+12. Logout
+
+The administrator must be able to manage the entire tournament without editing source code or manually changing MongoDB records.
+
+Use confirmation dialogs for destructive or important actions.
+
+Provide clear success and error messages.
+
+Prevent accidental duplicate submissions.
+
+Show loading states while saving data.
+
+Keep the interface usable on phones.
+
+==================================================
+19. API DESIGN
+==================================================
+
+Create a clean REST API under /api/v1.
+
+Implement endpoints for:
+
+AUTHENTICATION
+- Login
+- Logout
+- Current authenticated administrator
+- Session validation
+
+TOURNAMENTS
+- Create tournament
+- List tournaments
+- Retrieve tournament details
+- Update tournament
+- Publish tournament
+- Archive tournament
+- Delete or safely retire tournament
+
+TEAMS
+- Create team
+- List teams
+- Retrieve team details
+- Update team
+- Delete or archive team
+
+TOURNAMENT ENTRIES
+- Register a team for a tournament
+- Remove a tournament entry where permitted
+- List participating teams
+- Assign teams to groups
+- Update participation status
+
+STAGES
+- Create stage
+- Update stage
+- List stages
+- Complete stage
+- Preview qualified teams
+- Generate next stage
+- Apply qualification rules
+
+GROUPS
+- Create groups
+- Assign teams
+- Update groups
+- Retrieve group standings
+
+FIXTURES AND MATCHES
+- Generate fixtures
+- Create fixture
+- Edit fixture
+- Reschedule match
+- Change match status
+- Update score
+- Complete match
+- Correct result
+- Retrieve match details
+
+MATCH EVENTS
+- Add event
+- Edit event
+- Delete event
+- Retrieve match events
+
+STANDINGS
+- Retrieve league standings
+- Retrieve group standings
+- Recalculate standings through an authorized administrative operation when needed
+
+AUDIT LOGS
+- Retrieve administrative activity for authorized administrators
+
+Validate request parameters, request bodies, authentication, and authorization.
+
+Use consistent response formats and appropriate HTTP status codes.
+
+Implement centralized error handling.
+
+Do not expose stack traces, internal database errors, or sensitive configuration in production responses.
+
+Use pagination where appropriate.
+
+Avoid unnecessarily returning private fields.
+
+==================================================
+20. REAL-TIME SOCKET.IO
+==================================================
+
+Implement real-time updates for public viewers.
+
+Relevant events include:
+- Match started.
+- Match score updated.
+- Match status changed.
+- Match completed.
+- Match rescheduled.
+- Match event added.
+- Standings updated.
+- Stage updated.
+- Qualified teams confirmed.
+- Knockout bracket updated.
+
+Use tournament-specific rooms or another appropriate subscription strategy.
+
+When a viewer opens a tournament, subscribe them to that tournament's public updates.
+
+Validate room subscriptions against published tournament identifiers.
+
+Never allow socket events to bypass administrative authorization.
+
+Only authorized administrators may submit score or match-management changes.
+
+Public viewers must receive updates without being able to modify data.
+
+Avoid broadcasting private information.
+
+Implement reconnection handling and refetch important data after a reconnect.
+
+Ensure socket connections are cleaned up when components unmount.
+
+==================================================
+21. DATABASE CONSISTENCY AND BUSINESS RULES
+==================================================
+
+Treat match results and standings as related business data.
+
+Implement a dependable strategy for updating them.
+
+Where practical, use MongoDB transactions for operations that update multiple related documents.
+
+If transactions are used, document the MongoDB deployment requirements and provide a safe approach for supported MongoDB Atlas deployments.
+
+Ensure that retrying a request does not duplicate match events, fixtures, or score changes.
+
+Use unique identifiers and appropriate unique indexes.
+
+Prevent duplicate team entries in the same tournament.
+
+Prevent duplicate group assignments where not allowed.
+
+Prevent invalid team pairings.
+
+Do not count uncompleted matches toward official standings.
+
+Do not advance knockout teams until the relevant tie has been resolved.
+
+Preserve historical data.
+
+For completed-result corrections, identify all dependent standings and qualification records that require recalculation.
+
+If a match result changes after later knockout rounds have been played, warn the administrator and require explicit confirmation before modifying downstream progression.
+
+Never silently replace an existing team in a completed knockout tie.
+
+Use optimistic concurrency control or equivalent safeguards for conflicting administrative updates where appropriate.
+
+Record important changes in the audit log.
+
+==================================================
+22. FILE STORAGE AND IMAGE UPLOADS
+==================================================
+
+Support tournament logos and team logos.
+
+Use a suitable persistent image-hosting service or object-storage provider.
+
+Keep image-storage configuration in environment variables.
+
+Do not assume that uploaded files stored on a temporary server filesystem will survive redeployment.
+
+Store image references in MongoDB, not large raw image files inside ordinary team documents unless a deliberate storage architecture requires it.
+
+Include:
+- File validation.
+- Upload size limits.
+- Error handling.
+- Safe image URLs.
+- Default logo placeholders.
+
+The application must still work when a tournament or team has no uploaded logo.
+
+==================================================
+23. SEO AND SHARING
+==================================================
+
+Implement useful public-facing SEO.
+
+Include:
+- Page titles.
+- Meta descriptions.
+- Canonical URLs where appropriate.
+- Open Graph metadata.
+- Social sharing previews.
+- Human-readable tournament slugs.
+- Team and match page metadata.
+
+Use sensible public URLs.
+
+Generate shareable links for tournaments, teams, matches, fixtures, standings, and results.
+
+Do not index private admin pages.
+
+Ensure publicly shared pages show the correct tournament name, match score, or relevant content in their metadata when technically supported by the rendering architecture.
+
+Do not publish private information through metadata or API responses.
+
+==================================================
+24. ACCESSIBILITY AND PERFORMANCE
+==================================================
+
+Implement:
+- Semantic HTML.
+- Accessible form labels.
+- Keyboard navigation.
+- Visible focus indicators.
+- Appropriate color contrast.
+- Accessible modal and drawer behavior.
+- Responsive images.
+- Lazy loading where appropriate.
+- Pagination for large data sets.
+- Efficient database queries.
+- Appropriate database indexes.
+- Sensible API caching for public data where safe.
+
+Avoid unnecessary database queries.
+
+Do not recalculate every tournament's standings whenever an unrelated match changes.
+
+Only update the relevant tournament, stage, or group.
+
+Ensure the public website remains usable when Socket.IO temporarily disconnects.
+
+Provide a normal API-fetch fallback so visitors can still view tournament data.
+
+==================================================
+25. ERROR HANDLING AND VALIDATION
+==================================================
+
+Every form must validate its data.
+
+Display helpful error messages when:
+- Required fields are missing.
+- Team names are invalid.
+- The team capacity is exceeded.
+- Teams are duplicated.
+- A match uses invalid teams.
+- A stage cannot be created.
+- A match result is invalid.
+- An administrator lacks permission.
+- MongoDB is unavailable.
+- An image upload fails.
+- A network request fails.
+
+Use a consistent error-response structure.
+
+Do not let a failed operation partially corrupt tournament records.
+
+Do not display success messages unless the backend confirms that the operation succeeded.
+
+==================================================
+26. INITIAL SETUP AND REPLIT DEPLOYMENT
+==================================================
+
+Configure the application to run correctly in Replit.
+
+Provide:
+- Correct package scripts.
+- Development command.
+- Production build command.
+- Production start command.
+- Required environment-variable documentation.
+- MongoDB Atlas connection instructions.
+- Administrator bootstrap instructions.
+- Deployment instructions.
+- Database initialization or migration guidance where applicable.
+
+Use Replit Secrets for confidential environment variables.
+
+Required configuration should include:
+
+MONGODB_URI
+MONGODB_DB_NAME
+SESSION_SECRET
+ADMIN_BOOTSTRAP_EMAIL
+ADMIN_BOOTSTRAP_PASSWORD
+
+The admin bootstrap credentials should only be used during a protected initial setup process.
+
+Do not expose bootstrap credentials in the public frontend.
+
+Do not log them.
+
+Disable or remove the bootstrap mechanism after the initial administrator has been created, or otherwise ensure it cannot be abused.
+
+Add suitable environment variables for image storage if an external image service is selected.
+
+Do not require a third-party paid service for basic tournament management beyond the required MongoDB connection and hosting environment.
+
+If an optional integration requires credentials, the core application must still run when that integration is not configured.
+
+Provide a .gitignore file that excludes:
+- .env
+- Secret files
+- node_modules
+- Build artifacts
+- Temporary uploads
+- Local logs
+
+Never overwrite the user's existing environment variables or source files without understanding the existing project structure.
+
+If the Replit project already contains code, inspect it and integrate the application appropriately.
+
+==================================================
+27. TESTING
+==================================================
+
+Write automated tests for critical functionality.
+
+At minimum, test:
+
+- Administrator authentication.
+- Unauthorized administrative requests.
+- Tournament creation.
+- Team registration.
+- Duplicate team-entry prevention.
+- Fixture generation.
+- Match status transitions.
+- Live score updates.
+- Full-time result processing.
+- Standings calculations.
+- Result correction and standings recalculation.
+- Group-stage qualification.
+- Knockout winner determination.
+- Two-legged aggregate calculations.
+- Penalty-shootout resolution.
+- Tournament isolation.
+- Public access to published tournaments.
+- Protection of unpublished tournament data.
+
+Use a suitable test database or isolated test environment.
+
+Do not run destructive tests against the production database.
+
+Document how to execute the tests.
+
+==================================================
+28. IMPLEMENTATION REQUIREMENTS
+==================================================
+
+Follow this development process.
+
+PHASE 1:
+Inspect the project structure and establish the application architecture.
+
+PHASE 2:
+Create the backend, MongoDB connection, database models, authentication, and validation.
+
+PHASE 3:
+Implement tournament management, team registration, stage management, fixture generation, and match control.
+
+PHASE 4:
+Implement standings calculations, group qualification, knockout progression, and result corrections.
+
+PHASE 5:
+Build the public frontend, admin dashboard, match centre sidebar, standings tables, match details, and knockout bracket.
+
+PHASE 6:
+Implement Socket.IO real-time updates and connect all frontend controls to the actual backend.
+
+PHASE 7:
+Implement image uploads, SEO, responsive layouts, and accessibility.
+
+PHASE 8:
+Write and run tests, fix integration errors, and verify the complete workflow.
+
+Do not stop after generating the frontend.
+
+Do not use mock data as the permanent source of tournament information.
+
+Seeded demo data may be provided as an optional development feature, but the administrator must be able to create and manage real tournaments.
+
+Do not leave buttons that only change the UI without saving data.
+
+Do not use placeholder API implementations for required features.
+
+Do not hard-code a single tournament, a fixed number of teams, or predetermined match results.
+
+Do not mark the project complete while essential routes, forms, database operations, or match-management workflows are broken.
+
+If a requirement cannot be fully implemented, explain the limitation rather than pretending it works.
+
+==================================================
+29. REQUIRED END-TO-END WORKFLOW
+==================================================
+
+Before considering the project complete, verify the following scenario.
+
+1. The administrator logs in securely.
+
+2. The administrator creates a tournament named "NutterX Champions Cup".
+
+3. The administrator sets the maximum participating team count to 16.
+
+4. The administrator uploads the tournament logo.
+
+5. The administrator registers 16 teams.
+
+6. The administrator creates a league phase or another selected competition format.
+
+7. The administrator generates fixtures.
+
+8. The administrator assigns kickoff dates and times.
+
+9. The public website displays the registered teams and upcoming matches.
+
+10. The administrator starts a match.
+
+11. The public website displays the match as LIVE.
+
+12. The administrator updates the score.
+
+13. Visitors see the updated score without refreshing the page.
+
+14. The administrator records goalscorers and match events.
+
+15. The administrator marks the match as full-time.
+
+16. The system saves the result and recalculates the relevant standings.
+
+17. After the league phase ends, the administrator completes the stage.
+
+18. The system previews the qualified teams based on the configured rules.
+
+19. The administrator confirms the qualified teams and creates the next stage.
+
+20. The website displays the knockout fixtures and bracket.
+
+21. The administrator manages the quarter-finals and semi-finals.
+
+22. Winners advance correctly to their next matches.
+
+23. The administrator completes the final.
+
+24. The website displays the champion.
+
+25. Visitors can still access the previous standings, fixtures, results, and completed stages.
+
+26. The administrator can correct a previous result and the system updates affected statistics safely.
+
+27. Data remains available after the application restarts or is redeployed, assuming MongoDB and the configured image-storage service remain available.
+
+28. Unauthenticated visitors cannot access administrative operations.
+
+29. A second tournament can be created without mixing its teams, standings, fixtures, or results with the first tournament.
+
+==================================================
+30. FINAL DELIVERY
+==================================================
+
+Deliver a complete working application with:
+
+- Public tournament frontend.
+- Secure administrator dashboard.
+- MongoDB persistence.
+- Team management.
+- Tournament management.
+- Configurable competition formats.
+- Stage and group management.
+- Fixture generation and scheduling.
+- Live match controls.
+- Real-time score updates.
+- Match events.
+- Automatic league standings.
+- Automatic qualification where configured.
+- Manual qualification controls.
+- Knockout bracket and progression.
+- Match Centre sidebar.
+- Match details pages.
+- Tournament history.
+- Image upload integration.
+- Responsive design.
+- API validation and security.
+- Automated tests.
+- Setup documentation.
+- Deployment documentation.
+
+The finished website must be fully usable by a non-technical tournament administrator.
+
+Prioritize data correctness, security, reliability, and working tournament workflows over decorative features.
+
+Begin implementing the application now. Inspect the existing project first, then build and test each component until the complete application works.
