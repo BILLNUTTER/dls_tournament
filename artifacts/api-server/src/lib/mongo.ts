@@ -85,13 +85,21 @@ export const Team = mongoose.models.Team ?? mongoose.model("Team", teamSchema);
 export const Stage = mongoose.models.Stage ?? mongoose.model("Stage", stageSchema);
 export const Match = mongoose.models.Match ?? mongoose.model("Match", matchSchema);
 
+let mongoConnection: Promise<void> | null = null;
+
 export async function connectMongo(): Promise<void> {
   const uri = process.env.MONGODB_URI;
   if (!uri) throw new Error("MONGODB_URI must be configured to run the tournament API.");
-  await mongoose.connect(uri, {
+  if (mongoose.connection.readyState === 1) return;
+  if (mongoConnection) return mongoConnection;
+  mongoConnection = mongoose.connect(uri, {
     dbName: process.env.MONGODB_DATABASE || undefined,
     serverSelectionTimeoutMS: 12_000,
+  }).then(() => undefined).catch((error: unknown) => {
+    mongoConnection = null;
+    throw error;
   });
+  return mongoConnection;
 }
 
 export function toPlain<T extends Document>(doc: T) {

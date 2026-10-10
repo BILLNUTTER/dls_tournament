@@ -1,9 +1,11 @@
 import express, { type Express } from "express";
+import cors from "cors";
 import pinoHttp from "pino-http";
 import session from "express-session";
 import MongoStore from "connect-mongo";
 import router from "./routes";
 import { logger } from "./lib/logger";
+import { connectMongo } from "./lib/mongo";
 
 const app: Express = express();
 app.set("trust proxy", 1);
@@ -27,6 +29,18 @@ app.use(
     },
   }),
 );
+const webOrigin = process.env.WEB_ORIGIN;
+if (webOrigin) {
+  app.use(cors({ origin: webOrigin, credentials: true }));
+}
+app.use(async (_req, _res, next) => {
+  try {
+    await connectMongo();
+    next();
+  } catch (error) {
+    next(error);
+  }
+});
 app.use(express.json({ limit: "100kb" }));
 app.use(express.urlencoded({ extended: true }));
 const mongoUri = process.env.MONGODB_URI;

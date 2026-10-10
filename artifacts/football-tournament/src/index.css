@@ -494,6 +494,9 @@ a { color: inherit; text-decoration: none; }
 .page-title h1 {font:700 clamp(42px,6vw,70px)/.95 var(--app-font-serif);text-transform:uppercase;margin:12px 0;}
 .page-title p {margin:0;color:rgba(246,244,232,.65);font-size:14px;}
 .filterbar {display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:20px 0;}
+.subnav {display:flex;gap:8px;align-items:center;overflow-x:auto;white-space:nowrap;margin:20px 0;padding:5px 0;border-bottom:1px solid hsl(var(--border));scrollbar-width:thin}
+.subnav button {flex:0 0 auto;border:0;border-bottom:2px solid transparent;background:transparent;color:hsl(var(--muted-foreground));padding:10px 13px;font-weight:700;font-size:12px;cursor:pointer}
+.subnav button:hover,.subnav button.active {color:hsl(var(--foreground));border-bottom-color:hsl(var(--secondary))}
 .field {display:grid;gap:7px;margin:0 0 15px;}
 .field label {font:600 10px var(--app-font-mono);text-transform:uppercase;letter-spacing:.08em;color:hsl(var(--muted-foreground));}
 .field input,.field select,.field textarea {width:100%;padding:12px;border:1px solid hsl(var(--border));border-radius:3px;background:hsl(var(--background));color:hsl(var(--foreground));outline:none;}

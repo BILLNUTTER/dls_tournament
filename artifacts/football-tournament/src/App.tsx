@@ -14,11 +14,19 @@ import {
   useLogoutAdmin, getGetDashboardQueryKey, getListTournamentsQueryKey, getListTeamsQueryKey,
   getListStagesQueryKey, getListMatchesQueryKey, getGetStandingsQueryKey,
   getListMatchEventsQueryKey, getGetAdminSessionQueryKey, getGetTournamentQueryKey,
+  setBaseUrl,
 } from '@workspace/api-client-react';
 import type { Match, Standing, Team, Tournament } from '@workspace/api-client-react';
 import NotFound from '@/pages/not-found';
 
-const queryClient = new QueryClient();
+setBaseUrl(import.meta.env.VITE_API_BASE_URL || null);
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchInterval: import.meta.env.PROD ? 5_000 : false,
+    },
+  },
+});
 type Notify = (message: string, error?: boolean) => void;
 
 function useNotify() {
@@ -114,6 +122,12 @@ function TournamentSelect({ tournaments, value, onChange }: { tournaments: Tourn
   </select>;
 }
 
+function Subnav({ items, value, onChange, label }: { items: { value: string; label: string }[]; value: string; onChange: (value: string) => void; label: string }) {
+  return <nav className="subnav" aria-label={label}>
+    {items.map((item) => <button key={item.value} type="button" className={value === item.value ? 'active' : ''} aria-pressed={value === item.value} onClick={() => onChange(item.value)}>{item.label}</button>)}
+  </nav>;
+}
+
 function HomePage() {
   const dashboard = useGetDashboard();
   const tournamentsQuery = useListTournaments();
@@ -155,9 +169,16 @@ function StandingsPage() {
   const currentId = id || tournaments.find((t) => t.status === 'active')?.id || tournaments[0]?.id || '';
   const standings = useGetStandings({ tournamentId: currentId }, { query: { enabled: !!currentId, queryKey: getGetStandingsQueryKey({ tournamentId: currentId }) } });
   const tournament = tournaments.find((t) => t.id === currentId);
+  const groups = [...new Set((standings.data || []).map((row) => row.group).filter((group): group is string => Boolean(group)))].sort((a, b) => a.localeCompare(b));
+  const [selectedGroup, setSelectedGroup] = useState('all');
+  const visibleGroup = groups.includes(selectedGroup) ? selectedGroup : 'all';
+  const shownGroups = visibleGroup === 'all' ? groups : [visibleGroup];
   return <PublicShell><PublicTitle title="Standings" description="A clear picture of the race, updated as results come in." /><main className="wrap section">
     <div className="filterbar"><TournamentSelect tournaments={tournaments} value={currentId} onChange={setId} />{tournament && <span className="tag">{tournament.format.replace('-', ' ')}</span>}</div>
-    {standings.isLoading || tournamentsQuery.isLoading ? <LoadingRows /> : standings.isError ? <Failure retry={() => standings.refetch()} /> : <StandingsTable standings={standings.data || []} />}
+    {standings.isLoading || tournamentsQuery.isLoading ? <LoadingRows /> : standings.isError ? <Failure retry={() => standings.refetch()} /> : groups.length > 0 ? <>
+      {groups.length > 1 && <Subnav label="Standings group filter" value={visibleGroup} onChange={setSelectedGroup} items={[{ value: 'all', label: 'All groups' }, ...groups.map((group) => ({ value: group, label: /^group\b/i.test(group) ? group : `Group ${group}` }))]} />}
+      <div style={{ display: 'grid', gap: 28 }}>{shownGroups.map((group) => <section key={group}><div className="section-head"><div><div className="eyebrow">GROUP TABLE</div><h2>{/^group\b/i.test(group) ? group : `Group ${group}`}</h2></div></div><StandingsTable standings={(standings.data || []).filter((row) => row.group === group)} /></section>)}</div>
+    </> : <StandingsTable standings={standings.data || []} />}
   </main></PublicShell>;
 }
 
@@ -168,10 +189,25 @@ function MatchesPage({ mode }: { mode: 'fixtures' | 'results' | 'live' }) {
   const tournamentId = id || tournaments.find((t) => t.status === 'active')?.id || tournaments[0]?.id || '';
   const query = useListMatches({ tournamentId, ...(mode === 'live' ? { status: 'live' as const } : mode === 'results' ? { status: 'completed' as const } : { status: 'scheduled' as const }) }, { query: { enabled: !!tournamentId, queryKey: getListMatchesQueryKey({ tournamentId, ...(mode === 'live' ? { status: 'live' as const } : mode === 'results' ? { status: 'completed' as const } : { status: 'scheduled' as const }) }) } });
   const teamsQuery = useListTeams({ tournamentId }, { query: { enabled: !!tournamentId, queryKey: getListTeamsQueryKey({ tournamentId }) } });
+  const stagesQuery = useListStages({ tournamentId }, { query: { enabled: !!tournamentId, queryKey: getListStagesQueryKey({ tournamentId }) } });
+  const [selectedGroup, setSelectedGroup] = useState('all');
   const copy = mode === 'fixtures' ? ['Fixtures', 'Every kickoff, in its place.'] : mode === 'results' ? ['Results', 'The final whistle, recorded.'] : ['Live scores', 'Follow the action as it unfolds.'];
+  const teams = teamsQuery.data || [];
+  const teamsById = new Map(teams.map((team) => [team.id, team]));
+  const groupStages = new Set((stagesQuery.data || []).filter((stage) => stage.type === 'group').map((stage) => stage.id));
+  const groups = [...new Set(teams.map((team) => team.group).filter((group): group is string => Boolean(group)))].sort((a, b) => a.localeCompare(b));
+  const visibleGroup = groups.includes(selectedGroup) ? selectedGroup : 'all';
+  const shownMatches = visibleGroup === 'all' ? query.data || [] : (query.data || []).filter((match) =>
+    groupStages.has(match.stageId) &&
+    teamsById.get(match.homeTeamId)?.group === visibleGroup &&
+    teamsById.get(match.awayTeamId)?.group === visibleGroup,
+  );
   return <PublicShell><PublicTitle eyebrow={mode === 'live' ? 'IN PLAY' : undefined} title={copy[0]} description={copy[1]} /><main className="wrap section">
     <div className="filterbar"><TournamentSelect tournaments={tournaments} value={tournamentId} onChange={setId} />{mode === 'live' && <span className="tag live"><i className="live-dot" /> Live centre</span>}</div>
-    {query.isLoading || teamsQuery.isLoading ? <LoadingRows /> : query.isError ? <Failure retry={() => query.refetch()} /> : query.data?.length ? <section className="panel">{query.data.map((match) => <MatchLine match={match} teams={teamsQuery.data || []} key={match.id} />)}</section> : <Empty title={mode === 'live' ? 'No matches in play' : 'Nothing scheduled here yet'} detail={mode === 'results' ? 'Completed games will show here.' : 'Check back when the fixture list is published.'} />}
+    {query.isLoading || teamsQuery.isLoading || stagesQuery.isLoading ? <LoadingRows /> : query.isError ? <Failure retry={() => query.refetch()} /> : <>
+      {groups.length > 1 && <Subnav label="Fixture group filter" value={visibleGroup} onChange={setSelectedGroup} items={[{ value: 'all', label: 'All fixtures' }, ...groups.map((group) => ({ value: group, label: /^group\b/i.test(group) ? group : `Group ${group}` }))]} />}
+      {shownMatches.length ? <section className="panel">{shownMatches.map((match) => <MatchLine match={match} teams={teams} key={match.id} />)}</section> : <Empty title={mode === 'live' ? 'No matches in play' : 'Nothing scheduled here yet'} detail={mode === 'results' ? 'Completed games will show here.' : 'Check back when the fixture list is published.'} />}
+    </>}
   </main></PublicShell>;
 }
 
@@ -331,6 +367,10 @@ function AdminStages() {
   const tournamentId = selectedId || tournaments[0]?.id || '';
   const query = useListStages({ tournamentId }, { query: { enabled: !!tournamentId, queryKey: getListStagesQueryKey({ tournamentId }) } });
   const teamsQuery = useListTeams({ tournamentId }, { query: { enabled: !!tournamentId, queryKey: getListTeamsQueryKey({ tournamentId }) } });
+  const standingsQuery = useGetStandings({ tournamentId }, { query: { enabled: !!tournamentId, queryKey: getGetStandingsQueryKey({ tournamentId }) } });
+  const currentTournament = tournaments.find((tournament) => tournament.id === tournamentId);
+  const rankedTeams = standingsQuery.data || [];
+  const automaticTwentyTeamPath = currentTournament?.format === 'group-knockout' && teamsQuery.data?.length === 20;
   const create = useCreateStage();
   const complete = useCompleteStage();
   const [form, setForm] = useState({ name: '', type: 'league', order: '1' });
@@ -339,7 +379,15 @@ function AdminStages() {
   const [qualification, setQualification] = useState<Record<string, string>>({});
   return <><div className="eyebrow">COMPETITION STRUCTURE</div><h1>Stages</h1><div className="subhead">Build the competition pathway and decide who advances.</div><div className="filterbar"><TournamentSelect tournaments={tournaments} value={tournamentId} onChange={setSelectedId} /></div><div className="grid-main" style={{ gridTemplateColumns: 'minmax(270px,.7fr) minmax(0,1.3fr)' }}>
     <form className="panel panel-body" onSubmit={submit}><h3 className="display" style={{ fontSize: 23, marginTop: 0 }}>Add a stage</h3><Field label="Stage name" name="stage-name" value={form.name} onChange={(value) => setForm((f) => ({ ...f, name: value }))} required /><div className="form-grid"><Field label="Stage type" name="stage-type" value={form.type} options={['league', 'group', 'knockout']} onChange={(value) => setForm((f) => ({ ...f, type: value }))} /><Field label="Order" name="stage-order" value={form.order} type="number" onChange={(value) => setForm((f) => ({ ...f, order: value }))} /></div><button className="btn" disabled={!tournamentId || create.isPending}><Plus size={14} /> Create stage</button></form>
-    <section className="panel"><div className="panel-head"><h3>Stage sequence</h3><span className="tag">{query.data?.length || 0} stages</span></div>{query.isLoading ? <LoadingRows /> : query.isError ? <Failure retry={() => query.refetch()} /> : query.data?.length ? query.data.map((stage) => <div className="list-card" key={stage.id} style={{ alignItems: 'flex-start' }}><div style={{ flex: 1 }}><div style={{ display: 'flex', gap: 9, alignItems: 'center' }}><strong>{String(stage.order).padStart(2, '0')} · {stage.name}</strong><span className="tag">{stage.type}</span><span className={`tag ${stage.status === 'active' ? 'live' : ''}`}>{stage.status}</span></div>{stage.status !== 'completed' && <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}><select aria-label={`Qualified teams for ${stage.name}`} multiple value={qualification[stage.id]?.split(',').filter(Boolean) || []} onChange={(event) => setQualification((old) => ({ ...old, [stage.id]: Array.from(event.target.selectedOptions, (option) => option.value).join(',') }))} style={{ minWidth: 180, minHeight: 65, border: '1px solid hsl(var(--border))', background: 'hsl(var(--background))', color: 'inherit', padding: 8 }} data-testid={`select-qualified-${stage.id}`}>{(teamsQuery.data || []).map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}</select><button className="btn small" onClick={() => complete.mutate({ stageId: stage.id, data: { qualifiedTeamIds: qualification[stage.id]?.split(',').filter(Boolean) || [] } }, { onSuccess: () => { qc.invalidateQueries({ queryKey: getListStagesQueryKey({ tournamentId }) }); notify('Stage completed and qualifiers recorded.'); }, onError: () => notify('Could not complete stage.') })} disabled={complete.isPending}>Complete stage</button></div>}</div></div>) : <Empty title="No stages defined" detail="Add the first phase of your tournament." />}</section>
+    <section className="panel"><div className="panel-head"><h3>Stage sequence</h3><span className="tag">{query.data?.length || 0} stages</span></div>{query.isLoading ? <LoadingRows /> : query.isError ? <Failure retry={() => query.refetch()} /> : query.data?.length ? query.data.map((stage) => {
+      const automaticStage = automaticTwentyTeamPath && stage.order === 1 && stage.type !== 'knockout';
+      return <div className="list-card" key={stage.id} style={{ alignItems: 'flex-start' }}><div style={{ flex: 1 }}><div style={{ display: 'flex', gap: 9, alignItems: 'center' }}><strong>{String(stage.order).padStart(2, '0')} · {stage.name}</strong><span className="tag">{stage.type}</span><span className={`tag ${stage.status === 'active' ? 'live' : ''}`}>{stage.status}</span></div>
+        {automaticStage && <div className="qualification-preview"><strong>20-team pathway</strong><span>Positions 1–4 advance directly to the quarter-finals.</span><span>Positions 5–12 enter four playoff fixtures.</span><span>Positions 13–20 are eliminated.</span>{rankedTeams.some((team) => team.played > 0) && <small>Current leaders: {rankedTeams.slice(0, 4).map((team) => team.shortName || team.teamName).join(' · ')}</small>}</div>}
+        {stage.status !== 'completed' && <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+          {!automaticStage && <select aria-label={`Qualified teams for ${stage.name}`} multiple value={qualification[stage.id]?.split(',').filter(Boolean) || []} onChange={(event) => setQualification((old) => ({ ...old, [stage.id]: Array.from(event.target.selectedOptions, (option) => option.value).join(',') }))} style={{ minWidth: 180, minHeight: 65, border: '1px solid hsl(var(--border))', background: 'hsl(var(--background))', color: 'inherit', padding: 8 }} data-testid={`select-qualified-${stage.id}`}>{(teamsQuery.data || []).map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}</select>}
+          <button className="btn small" onClick={() => complete.mutate({ stageId: stage.id, data: { qualifiedTeamIds: qualification[stage.id]?.split(',').filter(Boolean) || [] } }, { onSuccess: () => { qc.invalidateQueries({ queryKey: getListStagesQueryKey({ tournamentId }) }); qc.invalidateQueries({ queryKey: getListMatchesQueryKey({ tournamentId }) }); notify('Stage completed and qualifiers recorded.'); }, onError: () => notify('Could not complete stage.') })} disabled={complete.isPending}>Complete stage</button>
+        </div>}</div></div>;
+    }) : <Empty title="No stages defined" detail="Add the first phase of your tournament." />}</section>
   </div><Feedback message={notice} /></>;
 }
 
@@ -415,6 +463,7 @@ function AppRoutes() {
 function RealtimeSync() {
   const queryClient = useQueryClient();
   useEffect(() => {
+    if (import.meta.env.PROD) return;
     const socket = io({ path: '/socket.io', transports: ['websocket', 'polling'] });
     const refreshTournamentData = () => {
       void queryClient.invalidateQueries({ queryKey: getGetDashboardQueryKey() });

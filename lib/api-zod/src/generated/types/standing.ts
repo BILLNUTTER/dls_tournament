@@ -12,6 +12,8 @@ export interface Standing {
   shortName?: string;
   /** @nullable */
   logoUrl?: string | null;
+  /** @nullable */
+  group?: string | null;
   played: number;
   won: number;
   drawn: number;

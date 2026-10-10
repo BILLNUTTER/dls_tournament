@@ -380,8 +380,10 @@ export const CompleteStageParams = zod.object({
   "stageId": zod.coerce.string()
 })
 
+export const completeStageBodyQualifiedTeamIdsDefault = [];
+
 export const CompleteStageBody = zod.object({
-  "qualifiedTeamIds": zod.array(zod.string())
+  "qualifiedTeamIds": zod.array(zod.string()).default(completeStageBodyQualifiedTeamIdsDefault)
 })
 
 export const CompleteStageResponse = zod.object({
@@ -587,6 +589,7 @@ export const GetStandingsResponseItem = zod.object({
   "teamName": zod.string(),
   "shortName": zod.string().optional(),
   "logoUrl": zod.string().nullish(),
+  "group": zod.string().nullish(),
   "played": zod.number().int(),
   "won": zod.number().int(),
   "drawn": zod.number().int(),

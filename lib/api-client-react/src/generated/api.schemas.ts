@@ -247,7 +247,7 @@ export interface StageInput {
 }
 
 export interface StageCompleteInput {
-  qualifiedTeamIds: string[];
+  qualifiedTeamIds?: string[];
 }
 
 export type MatchStatus = typeof MatchStatus[keyof typeof MatchStatus];
@@ -373,6 +373,8 @@ export interface Standing {
   shortName?: string;
   /** @nullable */
   logoUrl?: string | null;
+  /** @nullable */
+  group?: string | null;
   played: number;
   won: number;
   drawn: number;

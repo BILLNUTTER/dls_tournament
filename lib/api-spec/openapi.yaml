@@ -667,10 +667,10 @@ components:
         order: { type: integer, minimum: 1 }
     StageCompleteInput:
       type: object
-      required: [qualifiedTeamIds]
       properties:
         qualifiedTeamIds:
           type: array
+          default: []
           items: { type: string }
     Match:
       type: object
@@ -751,6 +751,7 @@ components:
         teamName: { type: string }
         shortName: { type: string }
         logoUrl: { type: ["string", "null"] }
+        group: { type: ["string", "null"] }
         played: { type: integer }
         won: { type: integer }
         drawn: { type: integer }

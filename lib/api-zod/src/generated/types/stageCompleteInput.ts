@@ -7,5 +7,5 @@
  */
 
 export interface StageCompleteInput {
-  qualifiedTeamIds: string[];
+  qualifiedTeamIds?: string[];
 }
