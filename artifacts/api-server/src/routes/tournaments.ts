@@ -26,6 +26,11 @@ import {
 } from "@workspace/api-zod";
 import { Match, Stage, Team, Tournament, toMatch, toPlain } from "../lib/mongo";
 import { calculateStandings } from "../lib/standings";
+import {
+  generateOpeningKnockoutFixtures,
+  generateRoundRobinFixtures,
+  nextSaturdayKickoff,
+} from "../lib/fixture-generation";
 
 const router: IRouter = Router();
 
@@ -44,6 +49,11 @@ function idParam(value: string | string[] | undefined): string {
 function slugify(name: string): string {
   return name.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "tournament";
+}
+
+function normalizeGroup(value?: string | null): string | undefined {
+  const normalized = value?.replace(/^group\s*/i, "").trim().toUpperCase();
+  return normalized || undefined;
 }
 
 function broadcast(req: Request, event: string, payload: unknown): void {
@@ -82,6 +92,45 @@ router.post("/tournaments", requireAdmin, async (req, res): Promise<void> => {
   const baseSlug = slugify(parsed.data.name);
   const slug = `${baseSlug}-${Date.now().toString(36).slice(-5)}`;
   const tournament = await Tournament.create({ ...parsed.data, slug });
+  let stagePlan: { name: string; type: "league" | "group" | "knockout" }[] = [];
+  if (tournament.format === "league") {
+    stagePlan = [{ name: "League phase", type: "league" }];
+  } else if (tournament.format === "group-knockout" && tournament.maxTeams === 20) {
+    stagePlan = [
+      { name: "Group stage", type: "group" },
+      { name: "Playoffs", type: "knockout" },
+      { name: "Quarter-finals", type: "knockout" },
+      { name: "Semi-finals", type: "knockout" },
+      { name: "Final", type: "knockout" },
+    ];
+  } else if (tournament.format === "group-knockout") {
+    stagePlan = [{ name: "Group stage", type: "group" }];
+  } else {
+    let entrants = tournament.maxTeams;
+    if (entrants > 2 ** Math.floor(Math.log2(entrants))) {
+      stagePlan.push({ name: "Opening round", type: "knockout" });
+      entrants = 2 ** Math.floor(Math.log2(entrants));
+    }
+    while (entrants >= 2) {
+      const name = entrants === 16
+        ? "Round of 16"
+        : entrants === 8
+          ? "Quarter-finals"
+          : entrants === 4
+            ? "Semi-finals"
+            : entrants === 2
+              ? "Final"
+              : `${entrants}-team round`;
+      stagePlan.push({ name, type: "knockout" });
+      entrants /= 2;
+    }
+  }
+  await Stage.insertMany(stagePlan.map((stage, index) => ({
+    tournamentId: tournament._id,
+    ...stage,
+    order: index + 1,
+    status: index === 0 ? "active" : "upcoming",
+  })));
   res.status(201).json(toPlain(tournament));
 });
 
@@ -144,8 +193,94 @@ router.post("/teams", requireAdmin, async (req, res): Promise<void> => {
     res.status(409).json({ error: `This tournament is full (${tournament.maxTeams} teams).` });
     return;
   }
+  let teamInput = { ...parsed.data, group: normalizeGroup(parsed.data.group) };
+  if (tournament.format === "group-knockout") {
+    const groupCount = tournament.maxTeams >= 8 ? 4 : tournament.maxTeams >= 4 ? 2 : 1;
+    const groups = ["A", "B", "C", "D"].slice(0, groupCount);
+    const groupCapacity = Math.ceil(tournament.maxTeams / groupCount);
+    const existingTeams = await Team.find({ tournamentId: tournament._id });
+    const groupCounts = new Map(groups.map((group) => [group, 0]));
+    for (const existing of existingTeams) {
+      const group = normalizeGroup(existing.group);
+      if (group && groupCounts.has(group)) groupCounts.set(group, (groupCounts.get(group) ?? 0) + 1);
+    }
+    const requestedGroup = normalizeGroup(parsed.data.group);
+    const selectedGroup = requestedGroup || groups.find((group) => (groupCounts.get(group) ?? 0) < 5);
+    if (!selectedGroup || !groupCounts.has(selectedGroup) || (groupCounts.get(selectedGroup) ?? 0) >= groupCapacity) {
+      res.status(400).json({ error: `This group format uses ${groupCount} groups. Choose an available group from ${groups[0]} to ${groups[groups.length - 1]}.` });
+      return;
+    }
+    teamInput = { ...parsed.data, group: selectedGroup };
+  }
   try {
-    const team = await Team.create(parsed.data);
+    const team = await Team.create(teamInput);
+    if (teamCount + 1 === tournament.maxTeams) {
+      const [firstStage, teams] = await Promise.all([
+        Stage.findOne({ tournamentId: tournament._id }).sort({ order: 1 }),
+        Team.find({ tournamentId: tournament._id }).sort({ createdAt: 1, _id: 1 }),
+      ]);
+      if (firstStage) {
+        const groupCounts = new Map<string, number>();
+        for (const registered of teams) {
+          const group = normalizeGroup(registered.group);
+          if (group) {
+            registered.group = group;
+            groupCounts.set(group, (groupCounts.get(group) ?? 0) + 1);
+            if (registered.isModified("group")) await registered.save();
+          }
+        }
+        if (groupCounts.size > 0) {
+          for (const registered of teams) {
+            if (normalizeGroup(registered.group)) continue;
+            const [group] = [...groupCounts.entries()].sort(
+              ([leftName, leftCount], [rightName, rightCount]) =>
+                leftCount - rightCount || leftName.localeCompare(rightName),
+            )[0] ?? [];
+            if (group) {
+              registered.group = group;
+              await registered.save();
+              groupCounts.set(group, (groupCounts.get(group) ?? 0) + 1);
+            }
+          }
+        }
+        let fixtures: Record<string, unknown>[];
+        if (firstStage.type === "knockout") {
+          const generated = generateOpeningKnockoutFixtures({
+            tournamentId: tournament._id,
+            stageId: String(firstStage._id),
+            stageName: firstStage.name,
+            teams,
+          });
+          fixtures = generated.fixtures;
+          firstStage.qualifiedTeamIds = generated.participants;
+          const nextStage = await Stage.findOne({ tournamentId: tournament._id, order: firstStage.order + 1 });
+          if (nextStage) {
+            nextStage.qualifiedTeamIds = generated.byes;
+            await nextStage.save();
+          }
+        } else {
+          fixtures = generateRoundRobinFixtures({
+            tournamentId: tournament._id,
+            stageId: String(firstStage._id),
+            teams,
+            stageName: firstStage.name,
+            groupStage:
+              firstStage.type === "group" ||
+              teams.some((registered) => Boolean(registered.group?.trim())),
+            doubleRoundRobin:
+              firstStage.type === "league" &&
+              !teams.some((registered) => Boolean(registered.group?.trim())),
+          });
+        }
+        const createdMatches = await Match.insertMany(fixtures);
+        firstStage.status = "active";
+        await firstStage.save();
+        const matches = createdMatches.map(toMatch);
+        broadcast(req, "fixtures:generated", matches);
+        broadcast(req, "stage:updated", toPlain(firstStage));
+      }
+    }
+    broadcast(req, "teams:updated", { tournamentId: String(tournament._id) });
     res.status(201).json(toPlain(team));
   } catch (error) {
     if ((error as { code?: number }).code === 11000) {
@@ -167,11 +302,43 @@ router.patch("/teams/:teamId", requireAdmin, async (req, res): Promise<void> => 
     res.status(400).json({ error: body.error.message });
     return;
   }
-  const team = await Team.findByIdAndUpdate(params.data.teamId, body.data, { new: true, runValidators: true });
-  if (!team) {
+  const currentTeam = await Team.findById(params.data.teamId);
+  if (!currentTeam) {
     res.status(404).json({ error: "Team not found." });
     return;
   }
+  let updateData = body.data;
+  if (body.data.group !== undefined && body.data.group !== currentTeam.group) {
+    const hasFixtures = await Match.exists({
+      $or: [{ homeTeamId: String(currentTeam._id) }, { awayTeamId: String(currentTeam._id) }],
+    });
+    if (hasFixtures) {
+      res.status(409).json({ error: "Group assignments are locked after fixtures have been generated." });
+      return;
+    }
+    const tournament = await Tournament.findById(currentTeam.tournamentId);
+    if (tournament?.format === "group-knockout") {
+      const groupCount = tournament.maxTeams >= 8 ? 4 : tournament.maxTeams >= 4 ? 2 : 1;
+      const groups = ["A", "B", "C", "D"].slice(0, groupCount);
+      const groupCapacity = Math.ceil(tournament.maxTeams / groupCount);
+      const group = body.data.group?.replace(/^group\s*/i, "").trim().toUpperCase();
+      if (!group || !groups.includes(group)) {
+        res.status(400).json({ error: `Assign this team to a group from ${groups[0]} to ${groups[groups.length - 1]}.` });
+        return;
+      }
+      const groupMembers = await Team.countDocuments({
+        tournamentId: tournament._id,
+        group,
+        _id: { $ne: currentTeam._id },
+      });
+      if (groupMembers >= groupCapacity) {
+        res.status(409).json({ error: "That group is full. Choose another group to keep the stage balanced." });
+        return;
+      }
+      updateData = { ...body.data, group };
+    }
+  }
+  const team = await Team.findByIdAndUpdate(params.data.teamId, updateData, { new: true, runValidators: true });
   res.json(toPlain(team));
 });
 
@@ -256,6 +423,15 @@ router.post("/stages/:stageId/complete", requireAdmin, async (req, res): Promise
   }
   const tournament = await Tournament.findById(stage.tournamentId);
   const teamCount = await Team.countDocuments({ tournamentId: stage.tournamentId });
+  if (
+    tournament &&
+    stage.order === 1 &&
+    ["league", "knockout", "group-knockout"].includes(tournament.format) &&
+    teamCount < tournament.maxTeams
+  ) {
+    res.status(409).json({ error: `Register all ${tournament.maxTeams} teams before completing the opening stage.` });
+    return;
+  }
   const automaticTwentyTeamPath =
     tournament?.format === "group-knockout" &&
     teamCount === 20 &&
@@ -275,6 +451,21 @@ router.post("/stages/:stageId/complete", requireAdmin, async (req, res): Promise
     if (completedMatches.length === 0) {
       res.status(409).json({ error: "Generate and complete the league or group fixtures before qualifying teams." });
       return;
+    }
+    if (stage.type === "group") {
+      const groupCounts = new Map<string, number>();
+      for (const team of teams) {
+        const group = team.group?.trim();
+        if (!group) {
+          res.status(409).json({ error: "Assign all teams to groups before calculating the 20-team pathway." });
+          return;
+        }
+        groupCounts.set(group, (groupCounts.get(group) ?? 0) + 1);
+      }
+      if (new Set(groupCounts.values()).size > 1) {
+        res.status(409).json({ error: "Groups must have equal team counts before comparing the 20-team standings." });
+        return;
+      }
     }
     const rankings = calculateStandings(teams, completedMatches);
     playoffTeamIds = rankings.slice(4, 12).map((row) => row.teamId);
@@ -306,9 +497,9 @@ router.post("/stages/:stageId/complete", requireAdmin, async (req, res): Promise
   }
   stage.status = "completed";
   stage.qualifiedTeamIds = qualified;
-  await stage.save();
 
   if (automaticTwentyTeamPath && playoffStage && quarterFinalStage) {
+    await stage.save();
     const playoffPairs = [
       [playoffTeamIds[0], playoffTeamIds[7]],
       [playoffTeamIds[1], playoffTeamIds[6]],
@@ -323,7 +514,7 @@ router.post("/stages/:stageId/complete", requireAdmin, async (req, res): Promise
         homeTeamId,
         awayTeamId,
         status: "scheduled",
-        kickoffAt: null,
+        kickoffAt: new Date(nextSaturdayKickoff().getTime() + index * 3 * 60 * 60 * 1000),
       })),
     );
     playoffStage.status = "active";
@@ -343,16 +534,24 @@ router.post("/stages/:stageId/complete", requireAdmin, async (req, res): Promise
           .filter((match) => match.homeScore !== match.awayScore)
           .map((match) => match.homeScore > match.awayScore ? match.homeTeamId : match.awayTeamId);
         const participants = new Set(completedMatches.flatMap((match) => [match.homeTeamId, match.awayTeamId]));
-        const byes = (stage.qualifiedTeamIds ?? []).filter((teamId) => !participants.has(teamId));
+        const stageTeamIds: string[] = (stage.qualifiedTeamIds ?? []).map(String);
+        const byes = stageTeamIds.filter((teamId: string) => !participants.has(teamId));
         const tiedTeamIds = new Set(tiedMatches.flatMap((match) => [match.homeTeamId, match.awayTeamId]));
-        const selectedTieWinners = [...new Set(body.data.qualifiedTeamIds ?? [])].filter((teamId) => tiedTeamIds.has(teamId));
-        if (selectedTieWinners.length !== tiedMatches.length) {
+        const requestedWinners: string[] = [...new Set(body.data.qualifiedTeamIds ?? [])].map(String);
+        const selectedTieWinners = requestedWinners.filter((teamId) => tiedTeamIds.has(teamId));
+        const selectedSet = new Set(selectedTieWinners);
+        const oneWinnerPerTie = tiedMatches.every((match) =>
+          Number(selectedSet.has(match.homeTeamId)) + Number(selectedSet.has(match.awayTeamId)) === 1,
+        );
+        if (!oneWinnerPerTie) {
           res.status(400).json({ error: "Select one winner for every tied knockout match; other winners advance from the final score." });
           return;
         }
         qualified = [...new Set([...byes, ...automaticWinners, ...selectedTieWinners])];
       }
     }
+    stage.qualifiedTeamIds = qualified;
+    await stage.save();
 
     const nextStage = await Stage.findOne({ tournamentId: stage.tournamentId, order: stage.order + 1 });
     if (nextStage && qualified.length > 0) {
@@ -361,6 +560,8 @@ router.post("/stages/:stageId/complete", requireAdmin, async (req, res): Promise
         const bracketEntrants = [...new Set([...(nextStage.qualifiedTeamIds ?? []), ...qualified])];
         const seeded = [...bracketEntrants];
         const byes: string[] = [];
+        const scheduleStart = nextSaturdayKickoff();
+        let kickoffSlot = 0;
         while (seeded.length > 1) {
           const home = seeded.shift();
           const away = seeded.pop();
@@ -372,8 +573,9 @@ router.post("/stages/:stageId/complete", requireAdmin, async (req, res): Promise
               homeTeamId: home,
               awayTeamId: away,
               status: "scheduled",
-              kickoffAt: null,
+              kickoffAt: new Date(scheduleStart.getTime() + kickoffSlot * 3 * 60 * 60 * 1000),
             });
+            kickoffSlot += 1;
           } else if (home) {
             byes.push(home);
           }
@@ -418,8 +620,9 @@ router.post("/matches", requireAdmin, async (req, res): Promise<void> => {
     res.status(400).json({ error: "Choose a valid stage and two different teams from this tournament." });
     return;
   }
+  const groupFixture = stage.type === "group" || Boolean(home.group || away.group);
   if (
-    stage.type === "group" &&
+    groupFixture &&
     (!home.group ||
       !away.group ||
       home.group.trim().toLowerCase() !== away.group.trim().toLowerCase())
@@ -460,63 +663,22 @@ router.post("/matches/generate", requireAdmin, async (req, res): Promise<void> =
     res.status(409).json({ error: "Fixtures already exist for this stage." });
     return;
   }
-  const teamGroups = new Map<string, typeof teams>();
-  if (stage.type === "group") {
-    if (teams.some((team) => !team.group?.trim())) {
-      res.status(400).json({ error: "Assign every team to a group before generating group-stage fixtures." });
-      return;
-    }
-    for (const team of teams) {
-      const group = team.group!.trim();
-      teamGroups.set(group, [...(teamGroups.get(group) ?? []), team]);
-    }
-    const groupSizes = new Set([...teamGroups.values()].map((groupTeams) => groupTeams.length));
-    if (groupSizes.size > 1) {
-      res.status(400).json({ error: "Groups must contain the same number of teams for fair cross-group qualification." });
-      return;
-    }
-  } else {
-    teamGroups.set("", teams);
-  }
-
-  const fixtures: Record<string, unknown>[] = [];
-  const baseDate = parsed.data.kickoffAt ? new Date(parsed.data.kickoffAt) : null;
-  for (const [groupName, groupTeams] of teamGroups) {
-    const rotation: (string | null)[] = groupTeams.map((team) => String(team._id));
-    if (rotation.length % 2 === 1) rotation.push(null);
-    const rounds = rotation.length - 1;
-    const perRound = rotation.length / 2;
-    for (let round = 0; round < rounds; round++) {
-      for (let pair = 0; pair < perRound; pair++) {
-        const first = rotation[pair];
-        const second = rotation[rotation.length - 1 - pair];
-        if (!first || !second) continue;
-        const swap = (round + pair) % 2 === 1;
-        for (let leg = 0; leg < (parsed.data.doubleRoundRobin ? 2 : 1); leg++) {
-          const invert = swap !== (leg === 1);
-          const matchday = round + 1 + leg * rounds;
-          const kickoffAt = baseDate
-            ? new Date(baseDate.getTime() + (matchday - 1) * 7 * 24 * 60 * 60 * 1000)
-            : null;
-          const label = stage.type === "group"
-            ? `${/^group\b/i.test(groupName) ? groupName : `Group ${groupName}`} · Matchday ${matchday}`
-            : `Matchday ${matchday}`;
-          fixtures.push({
-            tournamentId: tournament._id,
-            stageId: String(stage._id),
-            round: label,
-            homeTeamId: invert ? second : first,
-            awayTeamId: invert ? first : second,
-            kickoffAt,
-            status: "scheduled",
-          });
-        }
-      }
-      const fixed = rotation[0];
-      const tail = rotation.slice(1);
-      tail.unshift(tail.pop()!);
-      rotation.splice(0, rotation.length, fixed, ...tail);
-    }
+  let fixtures: Record<string, unknown>[];
+  try {
+    fixtures = generateRoundRobinFixtures({
+      tournamentId: tournament._id,
+      stageId: String(stage._id),
+      teams,
+      stageName: stage.name,
+      groupStage:
+        stage.type === "group" ||
+        teams.some((team) => Boolean(team.group?.trim())),
+      doubleRoundRobin: parsed.data.doubleRoundRobin,
+      kickoffAt: parsed.data.kickoffAt ? new Date(parsed.data.kickoffAt) : null,
+    });
+  } catch (error) {
+    res.status(400).json({ error: error instanceof Error ? error.message : "Could not generate fixtures." });
+    return;
   }
   const created = await Match.insertMany(fixtures);
   const result = created.map(toMatch);

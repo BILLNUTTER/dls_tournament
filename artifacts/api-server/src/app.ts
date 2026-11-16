@@ -32,6 +32,14 @@ app.use(
 const webOrigin = process.env.WEB_ORIGIN;
 if (webOrigin) {
   app.use(cors({ origin: webOrigin, credentials: true }));
+} else if (process.env.VERCEL) {
+  app.use((req, res, next) => {
+    if (req.headers.origin) {
+      res.status(503).json({ error: "Configure WEB_ORIGIN before connecting the Vercel web app." });
+      return;
+    }
+    next();
+  });
 }
 app.use(async (_req, _res, next) => {
   try {
