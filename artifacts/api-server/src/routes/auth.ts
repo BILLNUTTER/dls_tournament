@@ -1,16 +1,10 @@
 import { Router, type IRouter } from "express";
-import bcrypt from "bcryptjs";
+import { createHash, timingSafeEqual } from "node:crypto";
 import { rateLimit } from "express-rate-limit";
 import {
-  Admin,
-} from "../lib/mongo";
-import {
   GetAdminSessionResponse,
-  GetSetupStatusResponse,
   LoginAdminBody,
   LoginAdminResponse,
-  SetupAdminBody,
-  SetupAdminResponse,
 } from "@workspace/api-zod";
 
 const router: IRouter = Router();
@@ -27,60 +21,15 @@ declare module "express-session" {
   }
 }
 
-function sessionUser(admin: { _id: unknown; username?: string; email?: string; role: string }) {
-  return { id: String(admin._id), username: admin.username ?? admin.email ?? "", role: admin.role as "admin" };
+function safeEqual(left: string, right: string): boolean {
+  const leftBytes = Buffer.from(left);
+  const rightBytes = Buffer.from(right);
+  return leftBytes.length === rightBytes.length && timingSafeEqual(leftBytes, rightBytes);
 }
 
-router.get("/setup/status", async (_req, res): Promise<void> => {
-  const setupRequired = (await Admin.countDocuments()) === 0;
-  res.json(GetSetupStatusResponse.parse({ setupRequired }));
-});
-
-router.post("/setup/admin", credentialLimiter, async (req, res): Promise<void> => {
-  const parsed = SetupAdminBody.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.message });
-    return;
-  }
-  const expected = process.env.ADMIN_SETUP_TOKEN;
-  if (!expected) {
-    res.status(503).json({ error: "Initial administrator setup is not configured." });
-    return;
-  }
-  const supplied = Buffer.from(parsed.data.setupToken);
-  const configured = Buffer.from(expected);
-  const tokenMatches =
-    supplied.length === configured.length &&
-    (await import("node:crypto")).timingSafeEqual(supplied, configured);
-  if (!tokenMatches) {
-    res.status(403).json({ error: "Setup token is invalid." });
-    return;
-  }
-  await Admin.init();
-  if ((await Admin.countDocuments()) > 0) {
-    res.status(409).json({ error: "Administrator setup has already been completed." });
-    return;
-  }
-  const passwordHash = await bcrypt.hash(parsed.data.password, 12);
-  try {
-    const admin = await Admin.create({
-      username: parsed.data.username.toLowerCase(),
-      passwordHash,
-      role: "admin",
-    });
-    req.session.adminId = String(admin._id);
-    await new Promise<void>((resolve, reject) =>
-      req.session.save((error) => (error ? reject(error) : resolve())),
-    );
-    res.status(201).json(SetupAdminResponse.parse(sessionUser(admin)));
-  } catch (error) {
-    if ((error as { code?: number }).code === 11000) {
-      res.status(409).json({ error: "Administrator setup has already been completed." });
-      return;
-    }
-    throw error;
-  }
-});
+function envAdminId(username: string, password: string): string {
+  return `env-admin:${createHash("sha256").update(`${username}\0${password}`).digest("hex")}`;
+}
 
 router.post("/auth/login", credentialLimiter, async (req, res): Promise<void> => {
   const parsed = LoginAdminBody.safeParse(req.body);
@@ -88,38 +37,49 @@ router.post("/auth/login", credentialLimiter, async (req, res): Promise<void> =>
     res.status(400).json({ error: parsed.error.message });
     return;
   }
+  const configuredUsername = process.env.ADMIN_USERNAME?.trim().toLowerCase();
+  const configuredPassword = process.env.ADMIN_PASSWORD;
+  if (!configuredUsername || !configuredPassword) {
+    res.status(503).json({ error: "Administrator credentials are not configured on the server." });
+    return;
+  }
   const username = parsed.data.username.trim().toLowerCase();
-  const admin = await Admin.findOne({
-    $or: [{ username }, { email: username }],
-  });
-  const passwordIsValid =
-    admin && (await bcrypt.compare(parsed.data.password, admin.passwordHash));
-  if (!admin || !passwordIsValid) {
+  const usernameIsValid = safeEqual(username, configuredUsername);
+  const passwordIsValid = safeEqual(parsed.data.password, configuredPassword);
+  if (!usernameIsValid || !passwordIsValid) {
     res.status(401).json({ error: "Username or password is incorrect." });
     return;
   }
   await new Promise<void>((resolve, reject) =>
     req.session.regenerate((error) => (error ? reject(error) : resolve())),
   );
-  req.session.adminId = String(admin._id);
+  req.session.adminId = envAdminId(configuredUsername, configuredPassword);
   await new Promise<void>((resolve, reject) =>
     req.session.save((error) => (error ? reject(error) : resolve())),
   );
-  res.json(LoginAdminResponse.parse(sessionUser(admin)));
+  res.json(LoginAdminResponse.parse({
+    id: "environment-admin",
+    username: configuredUsername,
+    role: "admin",
+  }));
 });
 
 router.get("/auth/me", async (req, res): Promise<void> => {
-  if (!req.session.adminId) {
+  const configuredUsername = process.env.ADMIN_USERNAME?.trim().toLowerCase();
+  const configuredPassword = process.env.ADMIN_PASSWORD;
+  const expectedAdminId = configuredUsername && configuredPassword
+    ? envAdminId(configuredUsername, configuredPassword)
+    : null;
+  if (!expectedAdminId || req.session.adminId !== expectedAdminId) {
+    if (req.session.adminId) req.session.destroy(() => undefined);
     res.status(401).json({ error: "Administrator sign-in required." });
     return;
   }
-  const admin = await Admin.findById(req.session.adminId);
-  if (!admin) {
-    req.session.destroy(() => undefined);
-    res.status(401).json({ error: "Administrator session is no longer valid." });
-    return;
-  }
-  res.json(GetAdminSessionResponse.parse(sessionUser(admin)));
+  res.json(GetAdminSessionResponse.parse({
+    id: "environment-admin",
+    username: configuredUsername,
+    role: "admin",
+  }));
 });
 
 router.post("/auth/logout", async (req, res): Promise<void> => {

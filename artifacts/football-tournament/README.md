@@ -15,17 +15,18 @@ The API requires these Replit secrets:
 
 - `MONGODB_URI` — MongoDB Atlas connection string
 - `SESSION_SECRET` — secret used to sign administrator session cookies
-- `ADMIN_SETUP_TOKEN` — one-time token for the first administrator setup
+- `ADMIN_USERNAME` — administrator username used for sign-in
+- `ADMIN_PASSWORD` — administrator password used for sign-in
 
 Optional environment variable: `MONGODB_DATABASE`.
 
 The Atlas network access list must allow the app runtime to connect. The API fails explicitly rather than switching to temporary/local storage when MongoDB is unreachable.
 
-## First administrator
+## Administrator sign-in
 
-Open `/admin/login` while the database is connected. The first-use form accepts `ADMIN_SETUP_TOKEN`, an email address, and a password of at least 12 characters. The token is accepted only until the first administrator is created. Later visits show the regular sign-in form.
+Open `/?admin=nutterx` to reach the hidden sign-in form. Set the administrator username and password as API environment secrets; the application compares sign-in attempts against those values and does not store the password in MongoDB. Use a password of at least 12 characters.
 
-Administrator passwords are bcrypt-hashed. Sessions are stored in MongoDB and use HTTP-only, same-site cookies.
+Successful sign-ins use MongoDB-backed sessions and HTTP-only, same-site cookies. Rotating either credential invalidates existing administrator sessions.
 
 ## Main functionality
 
@@ -57,7 +58,7 @@ pnpm run typecheck
 Deploy the web app and API as two Vercel projects from the same repository:
 
 1. Create the API project with root directory `artifacts/api-server`. Vercel detects the Express app in `src/index.ts`.
-2. Add `MONGODB_URI`, `SESSION_SECRET`, `ADMIN_SETUP_TOKEN`, and `WEB_ORIGIN` to the API project's environment variables. `WEB_ORIGIN` is the exact HTTPS origin of the web project, without a trailing slash.
+2. Add `MONGODB_URI`, `SESSION_SECRET`, `ADMIN_USERNAME`, `ADMIN_PASSWORD`, and `WEB_ORIGIN` to the API project's environment variables. `WEB_ORIGIN` is the exact HTTPS origin of the web project, without a trailing slash.
 3. Create the web project with root directory `artifacts/football-tournament`. The included `vercel.json` builds the Vite app and enables client-side route fallback.
 4. Set `VITE_API_BASE_URL` in the web project to the API project's HTTPS origin, then deploy the web project. Add that deployed web origin as `WEB_ORIGIN` in the API project and redeploy the API.
 

@@ -9,8 +9,10 @@
 export interface AdminLoginInput {
   /**
      * @minLength 3
-     * @maxLength 320
+     * @maxLength 32
+     * @pattern ^[A-Za-z0-9_.-]+$
      */
   username: string;
+  /** @minLength 12 */
   password: string;
 }

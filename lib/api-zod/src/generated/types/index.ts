@@ -9,7 +9,6 @@
 export * from './adminLoginInput';
 export * from './adminSession';
 export * from './adminSessionRole';
-export * from './adminSetupInput';
 export * from './dashboardSummary';
 export * from './error';
 export * from './errorResponseResponse';
@@ -30,7 +29,6 @@ export * from './matchInput';
 export * from './matchStatus';
 export * from './matchUpdate';
 export * from './matchUpdateStatus';
-export * from './setupStatus';
 export * from './stage';
 export * from './stageCompleteInput';
 export * from './stageInput';

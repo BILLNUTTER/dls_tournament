@@ -1,3 +1,8 @@
 <svg width="180" height="180" viewBox="0 0 180 180" fill="none" xmlns="http://www.w3.org/2000/svg">
-<rect width="180" height="180" rx="36" fill="#FF3C00"/>
+  <rect width="180" height="180" rx="38" fill="#18362D"/>
+  <path d="M90 13 151 36v50c0 35-24 64-61 81-37-17-61-46-61-81V36l61-23Z" fill="#18362D" stroke="#B7CE43" stroke-width="6"/>
+  <circle cx="90" cy="62" r="25" fill="#F7F5EF"/>
+  <path d="m90 48 12 9-5 14H83l-5-14 12-9Z" fill="#18362D"/>
+  <path d="m78 57-9-4m33 4 9-4M83 71l-7 9m21-9 7 9m-14-3v10" stroke="#18362D" stroke-width="3" stroke-linecap="round"/>
+  <text x="90" y="126" text-anchor="middle" fill="#F7F5EF" font-family="Arial, Helvetica, sans-serif" font-size="34" font-weight="900" letter-spacing="1">DLS</text>
 </svg>

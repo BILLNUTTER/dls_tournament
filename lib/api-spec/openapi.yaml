@@ -11,7 +11,7 @@ tags:
   - name: health
     description: Health operations
   - name: auth
-    description: Administrator setup and session
+    description: Environment-configured administrator session
   - name: tournaments
     description: Tournament configuration and overview
   - name: teams
@@ -36,40 +36,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
-  /setup/status:
-    get:
-      operationId: getSetupStatus
-      tags: [auth]
-      summary: Check whether initial administrator setup is available
-      responses:
-        "200":
-          description: Setup status
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SetupStatus"
-  /setup/admin:
-    post:
-      operationId: setupAdmin
-      tags: [auth]
-      summary: Create the initial administrator with the one-time setup token
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/AdminSetupInput"
-      responses:
-        "201":
-          description: Administrator created and signed in
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AdminSession"
-        "400":
-          $ref: "#/components/responses/ErrorResponse"
-        "409":
-          $ref: "#/components/responses/ErrorResponse"
   /auth/login:
     post:
       operationId: loginAdmin
@@ -89,6 +55,8 @@ paths:
               schema:
                 $ref: "#/components/schemas/AdminSession"
         "401":
+          $ref: "#/components/responses/ErrorResponse"
+        "503":
           $ref: "#/components/responses/ErrorResponse"
   /auth/me:
     get:
@@ -552,28 +520,16 @@ components:
           type: string
       required:
         - status
-    SetupStatus:
+    AdminLoginInput:
       type: object
-      required: [setupRequired]
+      required: [username, password]
       properties:
-        setupRequired: { type: boolean }
-    AdminSetupInput:
-      type: object
-      required: [setupToken, username, password]
-      properties:
-        setupToken: { type: string }
         username:
           type: string
           minLength: 3
           maxLength: 32
           pattern: '^[A-Za-z0-9_.-]+$'
         password: { type: string, minLength: 12 }
-    AdminLoginInput:
-      type: object
-      required: [username, password]
-      properties:
-        username: { type: string, minLength: 3, maxLength: 320 }
-        password: { type: string }
     AdminSession:
       type: object
       required: [id, username, role]

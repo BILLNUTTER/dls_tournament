@@ -18,49 +18,20 @@ export const HealthCheckResponse = zod.object({
 
 
 /**
- * @summary Check whether initial administrator setup is available
- */
-export const GetSetupStatusResponse = zod.object({
-  "setupRequired": zod.boolean()
-})
-
-
-/**
- * @summary Create the initial administrator with the one-time setup token
- */
-export const setupAdminBodyUsernameMin = 3;
-export const setupAdminBodyUsernameMax = 32;
-
-
-export const setupAdminBodyUsernameRegExp = new RegExp('^[A-Za-z0-9_.-]+$');
-export const setupAdminBodyPasswordMin = 12;
-
-
-
-export const SetupAdminBody = zod.object({
-  "setupToken": zod.string(),
-  "username": zod.string().min(setupAdminBodyUsernameMin).max(setupAdminBodyUsernameMax).regex(setupAdminBodyUsernameRegExp),
-  "password": zod.string().min(setupAdminBodyPasswordMin)
-})
-
-export const SetupAdminResponse = zod.object({
-  "id": zod.string(),
-  "username": zod.string(),
-  "role": zod.enum(['admin'])
-})
-
-
-/**
  * @summary Sign in an administrator
  */
 export const loginAdminBodyUsernameMin = 3;
-export const loginAdminBodyUsernameMax = 320;
+export const loginAdminBodyUsernameMax = 32;
+
+
+export const loginAdminBodyUsernameRegExp = new RegExp('^[A-Za-z0-9_.-]+$');
+export const loginAdminBodyPasswordMin = 12;
 
 
 
 export const LoginAdminBody = zod.object({
-  "username": zod.string().min(loginAdminBodyUsernameMin).max(loginAdminBodyUsernameMax),
-  "password": zod.string()
+  "username": zod.string().min(loginAdminBodyUsernameMin).max(loginAdminBodyUsernameMax).regex(loginAdminBodyUsernameRegExp),
+  "password": zod.string().min(loginAdminBodyPasswordMin)
 })
 
 export const LoginAdminResponse = zod.object({

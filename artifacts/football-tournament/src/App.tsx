@@ -10,7 +10,7 @@ import {
   useUpdateTournament, useListTeams, useCreateTeam, useUpdateTeam, useDeleteTeam,
   useListStages, useCreateStage, useCompleteStage, useListMatches, useCreateMatch,
   useGenerateFixtures, useUpdateMatch, useDeleteMatch, useGetStandings, useCreateMatchEvent,
-  useListMatchEvents, useGetSetupStatus, useSetupAdmin, useLoginAdmin, useGetAdminSession,
+  useListMatchEvents, useLoginAdmin, useGetAdminSession,
   useLogoutAdmin, getGetDashboardQueryKey, getListTournamentsQueryKey, getListTeamsQueryKey,
   getListStagesQueryKey, getListMatchesQueryKey, getGetStandingsQueryKey,
   getListMatchEventsQueryKey, getGetAdminSessionQueryKey, getGetTournamentQueryKey,
@@ -50,7 +50,7 @@ function Crest({ team, className = '' }: { team?: Partial<Team> | null; classNam
 }
 
 function Brand({ admin = false }: { admin?: boolean }) {
-  return <Link href="/" className="brand" data-testid="link-home"><span className="brand-mark"><Trophy size={18} /></span><span>{admin ? 'TOURNAMENT DESK' : 'MATCHDAY'}</span></Link>;
+  return <Link href="/" className="brand" data-testid="link-home"><img className="brand-mark" src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" /><span>{admin ? 'DLS ADMIN' : 'DLS TOURNAMENT'}</span></Link>;
 }
 
 const publicNav = [
@@ -433,17 +433,49 @@ function AdminMatches() {
 }
 
 function AdminLogin() {
-  const [setupToken, setSetupToken] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState('');
-  const setupStatus = useGetSetupStatus();
   const login = useLoginAdmin();
-  const setup = useSetupAdmin();
   const [, setPath] = useLocation();
-  const initialSetup = setupStatus.data?.setupRequired === true;
-  const submit = (event: FormEvent) => { event.preventDefault(); setMessage(''); const callbacks = { onSuccess: () => setPath('/admin'), onError: () => setMessage(initialSetup ? 'Setup could not be completed. Check the setup token and try again.' : 'Sign in failed. Check your username and password.') }; if (initialSetup) setup.mutate({ data: { setupToken, username, password } }, callbacks); else login.mutate({ data: { username, password } }, callbacks); };
-  return <main className="login-wrap"><section className="login-art"><Brand admin /><div><div className="eyebrow">BUILT FOR MATCHDAY</div><h1>Every detail.<br />Under control.</h1></div><div className="match-date">SECURE TOURNAMENT ADMINISTRATION</div></section><section className="login-box"><form className="login-form" onSubmit={submit}><div className="eyebrow">{initialSetup ? 'FIRST ADMINISTRATOR' : 'ADMIN ACCESS'}</div><h2>{initialSetup ? 'Set up your desk' : 'Welcome back'}</h2><p className="subhead">{initialSetup ? 'Choose an administrator username and password to manage competitions.' : 'Sign in to manage tournaments, teams and matchday.'}</p>{setupStatus.isLoading ? <LoadingRows /> : setupStatus.isError ? <Failure retry={() => setupStatus.refetch()} /> : <>{initialSetup && <div className="field"><label htmlFor="setup-token">One-time setup token</label><input id="setup-token" value={setupToken} onChange={(e) => setSetupToken(e.target.value)} required data-testid="input-setup-token" /></div>}<div className="field"><label htmlFor="admin-username">Admin username</label><input id="admin-username" type="text" autoComplete="username" minLength={3} maxLength={initialSetup ? 32 : 320} pattern={initialSetup ? '[A-Za-z0-9_.-]+' : undefined} value={username} onChange={(e) => setUsername(e.target.value)} required data-testid="input-admin-username" /></div><div className="field"><label htmlFor="admin-password">{initialSetup ? 'Create password' : 'Password'}</label><input id="admin-password" type="password" autoComplete={initialSetup ? 'new-password' : 'current-password'} minLength={initialSetup ? 12 : undefined} value={password} onChange={(e) => setPassword(e.target.value)} required data-testid="input-admin-password" /></div>{message && <div role="alert" className="tag" style={{ color: 'hsl(var(--destructive))', marginBottom: 15 }}>{message}</div>}<button className="btn" style={{ width: '100%' }} disabled={login.isPending || setup.isPending}>{initialSetup ? 'Create administrator' : 'Sign in securely'}</button></>}<div style={{ marginTop: 24, fontSize: 12, color: 'hsl(var(--muted-foreground))' }}><Link href="/" className="tag"><ChevronRight size={12} /> Return to public site</Link></div></form></section></main>;
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    setMessage('');
+    login.mutate(
+      { data: { username, password } },
+      {
+        onSuccess: () => setPath('/admin'),
+        onError: () => setMessage('Sign-in failed. Check your credentials and API configuration.'),
+      },
+    );
+  };
+  return <main className="login-wrap">
+    <section className="login-art">
+      <Brand admin />
+      <div><div className="eyebrow">BUILT FOR MATCHDAY</div><h1>Every detail.<br />Under control.</h1></div>
+      <div className="match-date">SECURE TOURNAMENT ADMINISTRATION</div>
+    </section>
+    <section className="login-box">
+      <form className="login-form" onSubmit={submit}>
+        <div className="eyebrow">ADMIN ACCESS</div>
+        <h2>Welcome back</h2>
+        <p className="subhead">Sign in with the administrator credentials configured for this app.</p>
+        <div className="field">
+          <label htmlFor="admin-username">Admin username</label>
+          <input id="admin-username" type="text" autoComplete="username" minLength={3} maxLength={32} pattern="[A-Za-z0-9_.-]+" value={username} onChange={(event) => setUsername(event.target.value)} required data-testid="input-admin-username" />
+        </div>
+        <div className="field">
+          <label htmlFor="admin-password">Password</label>
+          <input id="admin-password" type="password" autoComplete="current-password" minLength={12} value={password} onChange={(event) => setPassword(event.target.value)} required data-testid="input-admin-password" />
+        </div>
+        {message && <div role="alert" className="tag" style={{ color: 'hsl(var(--destructive))', marginBottom: 15 }}>{message}</div>}
+        <button className="btn" style={{ width: '100%' }} disabled={login.isPending}>Sign in securely</button>
+        <div style={{ marginTop: 24, fontSize: 12, color: 'hsl(var(--muted-foreground))' }}>
+          <Link href="/" className="tag"><ChevronRight size={12} /> Return to public site</Link>
+        </div>
+      </form>
+    </section>
+  </main>;
 }
 
 function AdminLoginEntry() {

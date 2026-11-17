@@ -1,15 +1,5 @@
 import mongoose, { Schema, type Document } from "mongoose";
 
-const adminSchema = new Schema(
-  {
-    username: { type: String, required: false, unique: true, sparse: true, lowercase: true, trim: true },
-    email: { type: String, required: false, unique: true, lowercase: true, trim: true },
-    passwordHash: { type: String, required: true },
-    role: { type: String, enum: ["admin"], default: "admin", unique: true },
-  },
-  { timestamps: true },
-);
-
 const tournamentSchema = new Schema(
   {
     name: { type: String, required: true, trim: true },
@@ -80,7 +70,6 @@ const matchSchema = new Schema(
   { timestamps: true },
 );
 
-export const Admin = mongoose.models.Admin ?? mongoose.model("Admin", adminSchema);
 export const Tournament = mongoose.models.Tournament ?? mongoose.model("Tournament", tournamentSchema);
 export const Team = mongoose.models.Team ?? mongoose.model("Team", teamSchema);
 export const Stage = mongoose.models.Stage ?? mongoose.model("Stage", stageSchema);

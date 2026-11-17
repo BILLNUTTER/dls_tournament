@@ -13,12 +13,7 @@ export interface HealthStatus {
   status: string;
 }
 
-export interface SetupStatus {
-  setupRequired: boolean;
-}
-
-export interface AdminSetupInput {
-  setupToken: string;
+export interface AdminLoginInput {
   /**
      * @minLength 3
      * @maxLength 32
@@ -26,15 +21,6 @@ export interface AdminSetupInput {
      */
   username: string;
   /** @minLength 12 */
-  password: string;
-}
-
-export interface AdminLoginInput {
-  /**
-     * @minLength 3
-     * @maxLength 320
-     */
-  username: string;
   password: string;
 }
 
