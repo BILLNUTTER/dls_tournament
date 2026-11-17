@@ -65,11 +65,10 @@ function PublicShell({ children }: { children: ReactNode }) {
       <Brand />
       <nav className="navlinks" aria-label="Tournament navigation">
         {publicNav.map(([href, label]) => <Link href={href} className={`${path === href ? 'active ' : ''}${href === '/live' ? 'nav-live' : ''}`} key={href} data-testid={`link-nav-${label.toLowerCase()}`}>{href === '/live' && <Radio size={13} />}{label}</Link>)}
-        <Link href="/admin/login" className="tag" data-testid="link-admin">Admin <ChevronRight size={12} /></Link>
       </nav>
     </header>
     {children}
-    <footer className="footer"><div className="wrap" style={{ display: 'flex', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}><span>Matchday · Tournament operations, made clear.</span><Link href="/admin/login">Organizer access</Link></div></footer>
+    <footer className="footer"><div className="wrap" style={{ display: 'flex', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}><span>Matchday · Tournament operations, made clear.</span></div></footer>
   </div>;
 }
 
@@ -286,7 +285,7 @@ function AdminFrame({ children }: { children: ReactNode }) {
     ['/admin', 'Overview', LayoutDashboard], ['/admin/tournaments', 'Tournaments', Trophy],
     ['/admin/teams', 'Teams', Users], ['/admin/stages', 'Stages', Flag], ['/admin/matches', 'Matches', Swords],
   ] as const;
-  return <div className="admin-shell"><header className="admin-nav"><Brand admin /><div style={{ display: 'flex', alignItems: 'center', gap: 15 }}><span className="match-date">OPERATIONS CONSOLE</span><button className="btn small secondary" onClick={() => logout.mutate(undefined, { onSuccess: () => { qc.setQueryData(getGetAdminSessionQueryKey(), null); setPath('/admin/login'); } })} disabled={logout.isPending} data-testid="button-logout"><LogOut size={14} /> Sign out</button></div></header><div className="admin-layout"><aside className="admin-side">{nav.map(([href, label, Icon]) => <Link href={href} key={href} className={path === href ? 'active' : ''} data-testid={`link-admin-${label.toLowerCase()}`}><Icon size={16} />{label}</Link>)}<Link href="/" style={{ marginTop: 'auto' }}><ArrowRight size={16} />View public site</Link></aside><main className="admin-content">{children}</main></div></div>;
+  return <div className="admin-shell"><header className="admin-nav"><Brand admin /><div style={{ display: 'flex', alignItems: 'center', gap: 15 }}><span className="match-date">OPERATIONS CONSOLE</span><button className="btn small secondary" onClick={() => logout.mutate(undefined, { onSuccess: () => { qc.setQueryData(getGetAdminSessionQueryKey(), null); setPath('/?admin=nutterx'); } })} disabled={logout.isPending} data-testid="button-logout"><LogOut size={14} /> Sign out</button></div></header><div className="admin-layout"><aside className="admin-side">{nav.map(([href, label, Icon]) => <Link href={href} key={href} className={path === href ? 'active ' : ''} data-testid={`link-admin-${label.toLowerCase()}`}><Icon size={16} />{label}</Link>)}<Link href="/" style={{ marginTop: 'auto' }}><ArrowRight size={16} />View public site</Link></aside><main className="admin-content">{children}</main></div></div>;
 }
 
 function AdminGate({ children }: { children: ReactNode }) {
@@ -294,7 +293,7 @@ function AdminGate({ children }: { children: ReactNode }) {
   const [, setPath] = useLocation();
   if (session.isLoading) return <div className="admin-shell"><div className="wrap section"><LoadingRows /></div></div>;
   if (session.isError || !session.data) {
-    if (typeof window !== 'undefined') setTimeout(() => setPath('/admin/login'), 0);
+    if (typeof window !== 'undefined') setTimeout(() => setPath('/?admin=nutterx'), 0);
     return <div className="admin-shell"><div className="wrap section"><Empty title="Administrator access required" detail="Redirecting to secure sign in." /></div></div>;
   }
   return <AdminFrame>{children}</AdminFrame>;
@@ -444,12 +443,30 @@ function AdminLogin() {
   const [, setPath] = useLocation();
   const initialSetup = setupStatus.data?.setupRequired === true;
   const submit = (event: FormEvent) => { event.preventDefault(); setMessage(''); const callbacks = { onSuccess: () => setPath('/admin'), onError: () => setMessage(initialSetup ? 'Setup could not be completed. Check the setup token and try again.' : 'Sign in failed. Check your email and password.') }; if (initialSetup) setup.mutate({ data: { setupToken, email, password } }, callbacks); else login.mutate({ data: { email, password } }, callbacks); };
-  return <main className="login-wrap"><section className="login-art"><Brand admin /><div><div className="eyebrow">BUILT FOR MATCHDAY</div><h1>Every detail.<br />Under control.</h1></div><div className="match-date">SECURE TOURNAMENT ADMINISTRATION</div></section><section className="login-box"><form className="login-form" onSubmit={submit}><div className="eyebrow">{initialSetup ? 'FIRST ADMINISTRATOR' : 'ADMIN ACCESS'}</div><h2>{initialSetup ? 'Set up your desk' : 'Welcome back'}</h2><p className="subhead">{initialSetup ? 'Create the first administrator account to begin managing competitions.' : 'Sign in to manage tournaments, teams and matchday.'}</p>{setupStatus.isLoading ? <LoadingRows /> : setupStatus.isError ? <Failure retry={() => setupStatus.refetch()} /> : <>{initialSetup && <div className="field"><label htmlFor="setup-token">One-time setup token</label><input id="setup-token" value={setupToken} onChange={(e) => setSetupToken(e.target.value)} required data-testid="input-setup-token" /></div>}<div className="field"><label htmlFor="admin-email">Email address</label><input id="admin-email" type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} required data-testid="input-admin-email" /></div><div className="field"><label htmlFor="admin-password">Password</label><input id="admin-password" type="password" autoComplete={initialSetup ? 'new-password' : 'current-password'} minLength={initialSetup ? 12 : undefined} value={password} onChange={(e) => setPassword(e.target.value)} required data-testid="input-admin-password" /></div>{message && <div role="alert" className="tag" style={{ color: 'hsl(var(--destructive))', marginBottom: 15 }}>{message}</div>}<button className="btn" style={{ width: '100%' }} disabled={login.isPending || setup.isPending}>{initialSetup ? 'Create administrator' : 'Sign in securely'}</button></>}<div style={{ marginTop: 24, fontSize: 12, color: 'hsl(var(--muted-foreground))' }}><Link href="/" className="tag"><ChevronRight size={12} /> Return to public site</Link></div></form></section></main>;
+  return <main className="login-wrap"><section className="login-art"><Brand admin /><div><div className="eyebrow">BUILT FOR MATCHDAY</div><h1>Every detail.<br />Under control.</h1></div><div className="match-date">SECURE TOURNAMENT ADMINISTRATION</div></section><section className="login-box"><form className="login-form" onSubmit={submit}><div className="eyebrow">{initialSetup ? 'FIRST ADMINISTRATOR' : 'ADMIN ACCESS'}</div><h2>{initialSetup ? 'Set up your desk' : 'Welcome back'}</h2><p className="subhead">{initialSetup ? 'Create the first administrator account to begin managing competitions.' : 'Sign in to manage tournaments, teams and matchday.'}</p>{setupStatus.isLoading ? <LoadingRows /> : setupStatus.isError ? <Failure retry={() => setupStatus.refetch()} /> : <>{initialSetup && <div className="field"><label htmlFor="setup-token">One-time setup token</label><input id="setup-token" value={setupToken} onChange={(e) => setSetupToken(e.target.value)} required data-testid="input-setup-token" /></div>}<div className="field"><label htmlFor="admin-email">{initialSetup ? 'Admin email address' : 'Admin username (email)'}</label><input id="admin-email" type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} required data-testid="input-admin-email" /></div><div className="field"><label htmlFor="admin-password">{initialSetup ? 'Create admin key' : 'Admin key (password)'}</label><input id="admin-password" type="password" autoComplete={initialSetup ? 'new-password' : 'current-password'} minLength={initialSetup ? 12 : undefined} value={password} onChange={(e) => setPassword(e.target.value)} required data-testid="input-admin-password" /></div>{message && <div role="alert" className="tag" style={{ color: 'hsl(var(--destructive))', marginBottom: 15 }}>{message}</div>}<button className="btn" style={{ width: '100%' }} disabled={login.isPending || setup.isPending}>{initialSetup ? 'Create administrator' : 'Sign in securely'}</button></>}<div style={{ marginTop: 24, fontSize: 12, color: 'hsl(var(--muted-foreground))' }}><Link href="/" className="tag"><ChevronRight size={12} /> Return to public site</Link></div></form></section></main>;
+}
+
+function AdminLoginEntry() {
+  const [, setPath] = useLocation();
+  const allowed = typeof window !== 'undefined' &&
+    new URLSearchParams(window.location.search).get('admin') === 'nutterx';
+
+  useEffect(() => {
+    if (!allowed) setPath('/');
+  }, [allowed, setPath]);
+
+  return allowed ? <AdminLogin /> : <HomePage />;
+}
+
+function RootEntry() {
+  const allowed = typeof window !== 'undefined' &&
+    new URLSearchParams(window.location.search).get('admin') === 'nutterx';
+  return allowed ? <AdminLogin /> : <HomePage />;
 }
 
 function AppRoutes() {
   return <Switch>
-    <Route path="/" component={HomePage} />
+    <Route path="/" component={RootEntry} />
     <Route path="/tournament/:slug" component={TournamentPage} />
     <Route path="/standings" component={StandingsPage} />
     <Route path="/fixtures" component={() => <MatchesPage mode="fixtures" />} />
@@ -458,7 +475,7 @@ function AppRoutes() {
     <Route path="/teams" component={TeamsPage} />
     <Route path="/bracket" component={BracketPage} />
     <Route path="/match/:id" component={MatchPage} />
-    <Route path="/admin/login" component={AdminLogin} />
+    <Route path="/admin/login" component={AdminLoginEntry} />
     <Route path="/admin" component={() => <AdminGate><AdminHome /></AdminGate>} />
     <Route path="/admin/tournaments" component={() => <AdminGate><AdminTournaments /></AdminGate>} />
     <Route path="/admin/teams" component={() => <AdminGate><AdminTeams /></AdminGate>} />
