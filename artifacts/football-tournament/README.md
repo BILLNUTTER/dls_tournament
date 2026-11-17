@@ -24,7 +24,7 @@ The Atlas network access list must allow the app runtime to connect. The API fai
 
 ## Administrator sign-in
 
-Open `/?admin=nutterx` to reach the hidden sign-in form. Set the administrator username and password as API environment secrets; the application compares sign-in attempts against those values and does not store the password in MongoDB. Use a password of at least 12 characters.
+Open `/?admin=nutterx` to reach the hidden sign-in form. Set the administrator username and password as API environment secrets; the application checks the entered values against those settings and does not store the password in MongoDB. Enter the exact configured password.
 
 Successful sign-ins use MongoDB-backed sessions and HTTP-only, same-site cookies. Rotating either credential invalidates existing administrator sessions.
 

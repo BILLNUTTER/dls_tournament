@@ -466,7 +466,7 @@ function AdminLogin() {
         </div>
         <div className="field">
           <label htmlFor="admin-password">Password</label>
-          <input id="admin-password" type="password" autoComplete="current-password" minLength={12} value={password} onChange={(event) => setPassword(event.target.value)} required data-testid="input-admin-password" />
+          <input id="admin-password" type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required data-testid="input-admin-password" />
         </div>
         {message && <div role="alert" className="tag" style={{ color: 'hsl(var(--destructive))', marginBottom: 15 }}>{message}</div>}
         <button className="btn" style={{ width: '100%' }} disabled={login.isPending}>Sign in securely</button>

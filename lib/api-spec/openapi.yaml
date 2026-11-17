@@ -529,7 +529,7 @@ components:
           minLength: 3
           maxLength: 32
           pattern: '^[A-Za-z0-9_.-]+$'
-        password: { type: string, minLength: 12 }
+        password: { type: string }
     AdminSession:
       type: object
       required: [id, username, role]
