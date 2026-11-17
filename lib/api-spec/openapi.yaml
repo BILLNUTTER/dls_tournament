@@ -559,23 +559,27 @@ components:
         setupRequired: { type: boolean }
     AdminSetupInput:
       type: object
-      required: [setupToken, email, password]
+      required: [setupToken, username, password]
       properties:
         setupToken: { type: string }
-        email: { type: string, format: email }
+        username:
+          type: string
+          minLength: 3
+          maxLength: 32
+          pattern: '^[A-Za-z0-9_.-]+$'
         password: { type: string, minLength: 12 }
     AdminLoginInput:
       type: object
-      required: [email, password]
+      required: [username, password]
       properties:
-        email: { type: string, format: email }
+        username: { type: string, minLength: 3, maxLength: 320 }
         password: { type: string }
     AdminSession:
       type: object
-      required: [id, email, role]
+      required: [id, username, role]
       properties:
         id: { type: string }
-        email: { type: string }
+        username: { type: string }
         role: { type: string, enum: [admin] }
     Tournament:
       type: object

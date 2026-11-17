@@ -7,6 +7,10 @@
  */
 
 export interface AdminLoginInput {
-  email: string;
+  /**
+     * @minLength 3
+     * @maxLength 320
+     */
+  username: string;
   password: string;
 }

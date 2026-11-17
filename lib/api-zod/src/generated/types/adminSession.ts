@@ -9,6 +9,6 @@ import type { AdminSessionRole } from './adminSessionRole';
 
 export interface AdminSession {
   id: string;
-  email: string;
+  username: string;
   role: AdminSessionRole;
 }

@@ -19,13 +19,22 @@ export interface SetupStatus {
 
 export interface AdminSetupInput {
   setupToken: string;
-  email: string;
+  /**
+     * @minLength 3
+     * @maxLength 32
+     * @pattern ^[A-Za-z0-9_.-]+$
+     */
+  username: string;
   /** @minLength 12 */
   password: string;
 }
 
 export interface AdminLoginInput {
-  email: string;
+  /**
+     * @minLength 3
+     * @maxLength 320
+     */
+  username: string;
   password: string;
 }
 
@@ -38,7 +47,7 @@ export const AdminSessionRole = {
 
 export interface AdminSession {
   id: string;
-  email: string;
+  username: string;
   role: AdminSessionRole;
 }
 

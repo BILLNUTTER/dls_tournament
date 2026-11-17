@@ -28,19 +28,24 @@ export const GetSetupStatusResponse = zod.object({
 /**
  * @summary Create the initial administrator with the one-time setup token
  */
+export const setupAdminBodyUsernameMin = 3;
+export const setupAdminBodyUsernameMax = 32;
+
+
+export const setupAdminBodyUsernameRegExp = new RegExp('^[A-Za-z0-9_.-]+$');
 export const setupAdminBodyPasswordMin = 12;
 
 
 
 export const SetupAdminBody = zod.object({
   "setupToken": zod.string(),
-  "email": zod.string().email(),
+  "username": zod.string().min(setupAdminBodyUsernameMin).max(setupAdminBodyUsernameMax).regex(setupAdminBodyUsernameRegExp),
   "password": zod.string().min(setupAdminBodyPasswordMin)
 })
 
 export const SetupAdminResponse = zod.object({
   "id": zod.string(),
-  "email": zod.string(),
+  "username": zod.string(),
   "role": zod.enum(['admin'])
 })
 
@@ -48,14 +53,19 @@ export const SetupAdminResponse = zod.object({
 /**
  * @summary Sign in an administrator
  */
+export const loginAdminBodyUsernameMin = 3;
+export const loginAdminBodyUsernameMax = 320;
+
+
+
 export const LoginAdminBody = zod.object({
-  "email": zod.string().email(),
+  "username": zod.string().min(loginAdminBodyUsernameMin).max(loginAdminBodyUsernameMax),
   "password": zod.string()
 })
 
 export const LoginAdminResponse = zod.object({
   "id": zod.string(),
-  "email": zod.string(),
+  "username": zod.string(),
   "role": zod.enum(['admin'])
 })
 
@@ -65,7 +75,7 @@ export const LoginAdminResponse = zod.object({
  */
 export const GetAdminSessionResponse = zod.object({
   "id": zod.string(),
-  "email": zod.string(),
+  "username": zod.string(),
   "role": zod.enum(['admin'])
 })
 

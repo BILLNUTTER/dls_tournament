@@ -27,8 +27,8 @@ declare module "express-session" {
   }
 }
 
-function sessionUser(admin: { _id: unknown; email: string; role: string }) {
-  return { id: String(admin._id), email: admin.email, role: admin.role as "admin" };
+function sessionUser(admin: { _id: unknown; username?: string; email?: string; role: string }) {
+  return { id: String(admin._id), username: admin.username ?? admin.email ?? "", role: admin.role as "admin" };
 }
 
 router.get("/setup/status", async (_req, res): Promise<void> => {
@@ -64,7 +64,7 @@ router.post("/setup/admin", credentialLimiter, async (req, res): Promise<void> =
   const passwordHash = await bcrypt.hash(parsed.data.password, 12);
   try {
     const admin = await Admin.create({
-      email: parsed.data.email.toLowerCase(),
+      username: parsed.data.username.toLowerCase(),
       passwordHash,
       role: "admin",
     });
@@ -88,11 +88,14 @@ router.post("/auth/login", credentialLimiter, async (req, res): Promise<void> =>
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const admin = await Admin.findOne({ email: parsed.data.email.toLowerCase() });
+  const username = parsed.data.username.trim().toLowerCase();
+  const admin = await Admin.findOne({
+    $or: [{ username }, { email: username }],
+  });
   const passwordIsValid =
     admin && (await bcrypt.compare(parsed.data.password, admin.passwordHash));
   if (!admin || !passwordIsValid) {
-    res.status(401).json({ error: "Email or password is incorrect." });
+    res.status(401).json({ error: "Username or password is incorrect." });
     return;
   }
   await new Promise<void>((resolve, reject) =>

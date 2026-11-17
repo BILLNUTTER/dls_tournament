@@ -8,7 +8,12 @@
 
 export interface AdminSetupInput {
   setupToken: string;
-  email: string;
+  /**
+     * @minLength 3
+     * @maxLength 32
+     * @pattern ^[A-Za-z0-9_.-]+$
+     */
+  username: string;
   /** @minLength 12 */
   password: string;
 }
